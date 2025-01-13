@@ -332,7 +332,7 @@ def idc_calculate(q1, q21, q31, q4, q5, U_L, F_L, T_L, T_W):
 
 # Simulation settings (Only Modify This!) ------------------------------------------------------------------------------------------ #
 # subject = 1 # Human antrhopometric data to use for simulation
-position = 4 # Robot position for calibration
+position = 0 # Robot position for calibration
 
 tolerance = 0.02  # 2% error tolerance for error thresholding
 variation_threshold = 0.01 # Variation tolerance for variation theresholding

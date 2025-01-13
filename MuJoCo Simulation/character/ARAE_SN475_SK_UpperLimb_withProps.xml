@@ -1,0 +1,140 @@
+<mujoco model="SA_new">
+  <compiler angle="radian" meshdir="./meshes/"  autolimits="true"/>
+
+  <default>
+    <default class = "armMotor">
+      <joint axis= "0 0 1" damping = "0.6" frictionloss="0.45"/>
+      <motor gear="1"/>
+    </default>
+
+    <default class = "armJoint">
+      <joint frictionloss="0.4" damping="0" stiffness="0" range="-3.14 3.14"/>
+    </default>
+
+    <geom contype="0" conaffinity="0"/>
+  </default>
+
+  <asset>
+    <mesh name="base_link"  file="arae_v1/Base_20240403.STL"   />
+    <mesh name="Link7"      file="arae_v1/Link7_20240403_2.STL"  />
+    <mesh name="Link3"      file="arae_v1/Link3_20240403_2.STL"  />
+    <mesh name="Link8"      file="arae_v1/Link8_20240403_2.STL"  />
+    <mesh name="Link9"      file="arae_v1/Link9_20240403_2.STL"  />
+    <mesh name="Link10"     file="arae_v1/Link10_20240403_2.STL" />
+    <mesh name="Link2L"     file="arae_v1/Link2L_20240403_2.STL" />
+    <mesh name="Link1"      file="arae_v1/Link1_20240403_2.STL"  />
+    <mesh name="Link2U"     file="arae_v1/Link2U_20240403_2.STL" />
+    <mesh name="table"      file="arae_props/WorkDesk.STL"  scale="0.001 0.00125 0.001"/>
+    <mesh name="chair"      file="arae_props/Chair.STL"     scale="0.001 0.0013 0.001"/>
+    <mesh name="mug"        file="arae_props/Mug.stl"       scale="0.001 0.001 0.001"/>
+    <mesh name="bottle"     file="arae_props/Bottle.stl"    scale="0.001 0.001 0.001"/>
+    <mesh name="bowl"       file="arae_props/Bowl.stl"      scale="0.008 0.01 0.01"/>
+  </asset>
+
+  <worldbody>
+    <body name="base_link" pos="-0.275 -0.385 0">
+      <inertial pos="0.000875376 0.0774883 0.225281" quat="0.706462 -0.0282448 0.0270471 0.70667" mass="59.8688" diaginertia="0.846888 0.645255 0.371492"/>
+      <geom type="mesh" mesh="base_link"/>
+
+      <!-- ! Blue -->
+      <body name="Link7" pos="0 0 0.6885" euler="0 0 0.052">
+        <inertial pos="0.00124018 -0.000149575 0.0521676" quat="0.500806 0.499384 0.499175 0.500634" mass="1.33195" diaginertia="0.00171716 0.00118594 0.00110321"/>
+        <joint name="Joint_q1_Blue" pos="0 0 0" axis="0 0 1" class="armJoint" ref="0.052"/>
+        <geom type="mesh" mesh="Link7"/>
+        <!-- ! Green -->
+        <body name="Link3" pos="0 -0.01 0.068" euler="-1.5707923 0 -0.1537963">
+          <inertial pos="0.214313 -0.0148675 -0.0131268" quat="-0.221534 0.671333 -0.221394 0.671729" mass="0.256676" diaginertia="0.000627864 0.000603371 4.3222e-05"/>
+          <joint name="Joint_q2_Green" pos="0 0 0" axis="0 0 1" class="armJoint" ref="1.417"/>
+          <geom type="mesh" mesh="Link3"/>
+
+          <body name="Link8" pos="0.43 0 0.012" euler="3.141 0 -2.7107923">
+            <inertial pos="0.228292 0.0187594 -0.0166331" quat="5.28345e-05 0.707373 4.88202e-05 0.70684" mass="0.533667" diaginertia="0.000816275 0.000784932 7.83784e-05"/>
+            <joint name="Link8_Joint" pos="0 0 0" axis="0 0 1" class="armJoint" ref="0"/>
+            <geom type="mesh" mesh="Link8"/>
+
+            <body name="Link9" pos="0.346 0.02 -0.06" euler="0 0 1.01">
+              <inertial pos="-6.43452e-05 0.00223569 -0.0346712" quat="0.714092 -0.0609228 0.0477388 0.69576" mass="0.310929" diaginertia="9.29455e-05 8.37052e-05 5.452e-05"/>
+              <joint name="Joint_q4_Yellow" pos="0 0 0" axis="0 0 1" ref="1.01" class="armJoint"/>
+              <geom type="mesh" mesh="Link9" />
+              <!-- ! Purple -->
+              <body name="Link10" pos="0 -0.023 -0.047" euler="-1.5707963268 0 1.5014">
+                <inertial pos="0.0737795 -0.00057452 0.0211211" quat="0.506922 0.506176 -0.477453 0.508778" mass="0.348788" diaginertia="0.00111501 0.000818924 0.000388543"/>
+                <joint name="Joint_q5_Purple" pos="0 0 0" axis="0 0 1" ref="1.5014" class="armJoint"/>
+                <geom type="mesh" mesh="Link10" rgba="0.3 0.2 0.2 1"/>
+              </body>
+            </body>
+
+            <body name="Link2L" pos="-0.1 0 0.012" euler="0 0 -0.4307923">
+              <inertial pos="0.0542398 -2.07527e-08 -0.00215145" quat="-8.09569e-05 0.707647 -8.10807e-05 0.706567" mass="0.0723973" diaginertia="0.000101641 0.000100134 3.40948e-06"/>
+              <joint name="Link2L_Joint" pos="0 0 0" axis="0 0 1" class="armJoint" ref="0"/>
+              <geom type="mesh" mesh="Link2L"/>
+            </body>
+          </body>
+        </body>
+
+        <!-- ! Orange -->
+        <body name="Link1" pos="0 0.01 0.068" euler="1.5707963268 0 0.5845926536">
+          <inertial pos="0.0463234 0 0.00466235" quat="0 0.706275 0 0.707938" mass="0.0941007" diaginertia="9.51849e-05 9.05894e-05 6.56327e-06"/>
+          <joint name="Joint_q3_Orange" pos="0 0 0" axis="0 0 1" class="armJoint" ref="0.5845926536"/>
+          <geom type="mesh" mesh="Link1" />
+          <body name="Link2U" pos="0.1 0 0.02" euler="0 0 -0.4307923">
+            <inertial pos="0.0542398 -2.07527e-08 -0.00215145" quat="-8.09569e-05 0.707647 -8.10807e-05 0.706567" mass="0.0723973" diaginertia="0.000101641 0.000100134 3.40948e-06"/>
+            <joint name="Link2U_Joint" pos="0 0 0" axis="0 0 1" class="armJoint" ref="0"/>
+            <geom type="mesh" mesh="Link2U" />
+          </body>
+        </body>
+      </body>
+
+      <!-- <body name="table" pos="0.45 -0.15 0" euler="1.5707963268 1.5707963268 0">
+        <inertial pos="0.000875376 0.0774883 0.225281" quat="0.706462 -0.0282448 0.0270471 0.70667" mass="59.8688" diaginertia="0.846888 0.645255 0.371492"/>
+        <geom type="mesh" mesh="table" rgba="0.1 0.5 0.5 1"/>
+
+        <body name="mug" pos="0.70 0.56 0.30" euler="0 3.141 0">
+          <inertial pos="0.000875376 0.0774883 0.225281" quat="0.706462 -0.0282448 0.0270471 0.70667" mass="59.8688" diaginertia="0.846888 0.645255 0.371492"/>
+          <geom type="mesh" mesh="mug" rgba="0.5 0.1 0.5 1"/>
+        </body>
+
+        <body name="bowl" pos="0.55 0.66 0.15" euler="0 0 0">
+          <inertial pos="0.000875376 0.0774883 0.225281" quat="0.706462 -0.0282448 0.0270471 0.70667" mass="59.8688" diaginertia="0.846888 0.645255 0.371492"/>
+          <geom type="mesh" mesh="bowl" rgba="0.5 0.5 0.1 1"/>
+        </body>
+
+        <body name="bottle" pos="0.45 0.72 0.12" euler="0 0 0">
+          <inertial pos="0.000875376 0.0774883 0.225281" quat="0.706462 -0.0282448 0.0270471 0.70667" mass="59.8688" diaginertia="0.846888 0.645255 0.371492"/>
+          <geom type="mesh" mesh="bottle" rgba="0.3 0.3 0.5 1"/>
+        </body>
+
+      </body> -->
+
+      <!-- <body name="chair" pos="-0.30 1.15 0" euler="1.5707963268 0 0">
+        <inertial pos="0.000875376 0.0774883 0.225281" quat="0.706462 -0.0282448 0.0270471 0.70667" mass="59.8688" diaginertia="0.846888 0.645255 0.371492"/>
+        <geom type="mesh" mesh="chair" rgba="0.3 0.5 0.3 1"/>
+      </body> -->
+    </body>
+  </worldbody>
+
+  <equality>
+    <weld body1="Link2L" body2="Link2U" solimp = "0.99 0.99 0.001 0.5 2" solref = "0.01 1" torquescale = "20"/>
+  </equality>
+
+  <contact>
+    <exclude body1="Link7" body2="base_link"/>
+    <exclude body1="Link3" body2="Link7"/>
+    <exclude body1="Link1" body2="Link7"/>
+  </contact>
+
+  <actuator>
+    <motor name="Motor 1" joint="Joint_q1_Blue"    class="armMotor"/>
+    <motor name="Motor 2" joint="Joint_q2_Green"   class="armMotor"/>
+    <motor name="Motor 3" joint="Joint_q3_Orange"  class="armMotor"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="Link7_Encoder"  joint="Joint_q1_Blue"   noise="0.00001"/>
+    <jointpos name="Link3_Encoder"  joint="Joint_q2_Green"  noise="0.00001"/>
+    <jointpos name="Link1_Encoder"  joint="Joint_q3_Orange" noise="0.00001"/>
+    <jointpos name="Link9_Encoder"  joint="Joint_q4_Yellow" noise="0.00001"/>
+    <jointpos name="Link10_Encoder" joint="Joint_q5_Purple" noise="0.00001"/>
+  </sensor>
+
+</mujoco>

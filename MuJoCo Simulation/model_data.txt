@@ -1,0 +1,10 @@
+Upper Arm Mass (U_M): 1.0542687374296
+Upper Arm Length (U_L): 0.2486838396567298
+Upper Arm COM (U_COM): 0.57370836881454366
+Forearm Mass (F_M): 0.93874
+Forearm Length (F_L): 0.25543492290745995
+Forearm COM (F_COM): 0.4974308358852518
+Pelvis to Femur (T_W): 0.1429514
+Femur to Humeris (T_L): 0.4552194642124803
+Pelvis to robot base: [-0.275  -0.385   0.1335]
+Pelvis to robot base (Rotated): [-0.385   0.275   0.1335]

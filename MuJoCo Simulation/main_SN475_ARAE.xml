@@ -1,0 +1,27 @@
+<mujoco model="Simulating SN475 with Assistive Arm Extender Robot">
+
+    <compiler angle="radian"/>
+
+    <option timestep="0.002"
+            integrator="implicitfast"/>
+
+    <include file="./common/skybox.xml"/>
+    <include file="./common/visual.xml"/>
+
+    <include file="./character/SN475_SK_shifted_UpperLimb.xml"/>
+    <include file="./character/ARAE_SN475_SK_UpperLimb_withProps.xml"/>
+
+    <equality>
+        <weld body1="Link10" body2="radius_r" torquescale="100" solref="0.02 1" solimp="0.9 0.95 0.001 0.5 2"/>
+        <weld body1="pelvis"/>
+        <weld body1="torso"/>
+    </equality>
+    <contact>
+        <exclude body1="base_link" body2="Link7"/>
+        <exclude body1="Link7" body2="Link3"/>
+        <exclude body1="Link3" body2="Link1"/>
+        <exclude body1="Link7" body2="Link1"/>
+        <exclude body1="Link10" body2="ulna_r"/>
+        <exclude body1="Link10" body2="radius_r"/>
+      </contact>
+</mujoco>

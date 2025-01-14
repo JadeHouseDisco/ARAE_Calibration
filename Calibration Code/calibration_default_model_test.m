@@ -16,7 +16,7 @@ femur_to_humeris = 0.4552194642124803;
 pelvis_to_femur = 0.1429514;
 
 %% Read data
-results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/results/with_hand_mass/results.csv';
+results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/results/with_hand_mass_20p/results.csv';
 json_filename = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/simulation_data.json';
 
 opts = detectImportOptions(results_file);
@@ -67,6 +67,7 @@ disp(calculated_forearm_com_fraction)
 actual_forearm_mass = 0.93874053;
 actual_upper_arm_product = 1.0542687374296 * 0.57370836881454366;
 actual_forearm_com_fraction = 0.4974308358852518;
+actual_humData = [actual_forearm_mass; actual_upper_arm_product; actual_forearm_com_fraction];
 
 disp("Actual:")
 disp(actual_forearm_mass)
@@ -76,6 +77,12 @@ disp(actual_forearm_com_fraction)
 error_forearm_mass = abs(calculated_forearm_mass - actual_forearm_mass) / actual_forearm_mass * 100;
 error_upper_arm_product = abs(calculated_upper_arm_product - actual_upper_arm_product) / actual_upper_arm_product * 100;
 error_forearm_com_fraction = abs(calculated_forearm_com_fraction - actual_forearm_com_fraction) / actual_forearm_com_fraction * 100;
+
+theoreticalTorque = solveForTheoreticalTorque(coefficients, actual_humData);
+disp("Torque from simulation:")
+disp(torques)
+disp("Theoretical Torque:")
+disp(theoreticalTorque)
 
 % Graph
 errors = [error_forearm_mass; error_upper_arm_product; error_forearm_com_fraction]';

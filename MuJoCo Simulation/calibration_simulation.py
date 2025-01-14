@@ -345,7 +345,7 @@ with open('simulation_data.json', 'r') as file:
     json_data = json.load(file)
 
 q1, q21, q31 = json_data["positions"][position]
-# anthropometric_data =  json_data["anthropometric_data"][subject]
+# anthropometric_data = json_data["anthropometric_data"][subject]
 
 # Designated folder for saving outputs
 # output_folder = "results/subject" + str(subject) + "/position" + str(position)

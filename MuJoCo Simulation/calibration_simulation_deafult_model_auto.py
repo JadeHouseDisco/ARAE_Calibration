@@ -425,8 +425,9 @@ for position in range(20):
         e_integral = [e_integral[i] + e[i] * dt for i in range(3)]
 
         tau_pid = [Kp[i]*e[i] + Ki[i]*e_integral[i] + Kd[i]*de[i] for i in range(3)]
-        tau_idc = idc_calculate(q1, q21, q31, q4, q5, upper_arm_length, forearm_length, femur_to_humeris, pelvis_to_femur)
-        torques = [tau_idc[i] + tau_pid[i] for i in range(3)]
+        # tau_idc = idc_calculate(q1, q21, q31, q4, q5, upper_arm_length, forearm_length, femur_to_humeris, pelvis_to_femur)
+        # torques = [tau_idc[i] + tau_pid[i] for i in range(3)]
+        torques = [tau_pid[i] for i in range(3)]
 
         # Apply torques
         motor_1_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, 'Motor 1')

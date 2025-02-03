@@ -338,13 +338,13 @@ max_simulation_time = 180 # Maximum simulation time in seconds
 # ---------------------------------------------------------------------------------------------------------------------------------- #
 
 # Load and access simulation data
-with open('simulation_data.json', 'r') as file:
+with open('simulation_data_test.json', 'r') as file:
     json_data = json.load(file)
 
 error_run = []
 log_all = []
 
-for position in range(10):
+for position in range(20):
 
     print("Running simulation for position " + str(position))
 
@@ -477,7 +477,7 @@ for position in range(10):
         e_prev = e
 
     if reason == "Maximum simulation time elapsed":
-        error_run.append({"subject": subject, "position": position})
+        error_run.append({"position": position})
 
     else:
         # Compute averages

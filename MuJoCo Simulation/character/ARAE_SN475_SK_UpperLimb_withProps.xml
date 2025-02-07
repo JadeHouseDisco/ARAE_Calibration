@@ -75,7 +75,7 @@
         <!-- ! Orange -->
         <body name="Link1" pos="0 0.01 0.068" euler="1.5707963268 0 0.5845926536">
           <inertial pos="0.0463234 0 0.00466235" quat="0 0.706275 0 0.707938" mass="0.0941007" diaginertia="9.51849e-05 9.05894e-05 6.56327e-06"/>
-          <joint name="Joint_q3_Orange" pos="0 0 0" axis="0 0 1" class="armJoint" ref="-0.9862036732"/>
+          <joint name="Joint_q3_Orange" pos="0 0 0" axis="0 0 1" class="armJoint" ref="0.5845926536"/>
           <geom type="mesh" mesh="Link1" />
           <body name="Link2U" pos="0.1 0 0.02" euler="0 0 -0.4307923">
             <inertial pos="0.0542398 -2.07527e-08 -0.00215145" quat="-8.09569e-05 0.707647 -8.10807e-05 0.706567" mass="0.0723973" diaginertia="0.000101641 0.000100134 3.40948e-06"/>

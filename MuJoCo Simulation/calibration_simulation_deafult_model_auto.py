@@ -344,7 +344,7 @@ with open('simulation_data.json', 'r') as file:
 error_run = []
 log_all = []
 
-for position in range(10):
+for position in range(7):
 
     print("Running simulation for position " + str(position))
 
@@ -359,9 +359,9 @@ for position in range(10):
     data = mujoco.MjData(model)
 
     # PID parameters for each motor
-    Kp = [110.0, 110.0, 110.0]  # Proportional gains
-    Ki = [50.0, 50.0, 50.0]     # Integral gains
-    Kd = [3.0, 3.0, 3.0]     # Derivative gains
+    Kp = [50.0, 50.0, 50.0]  # Proportional gains
+    Ki = [40.0, 40.0, 40.0]     # Integral gains
+    Kd = [2.0, 2.0, 2.0]     # Derivative gains
 
     # PID error tracking
     e_prev = [0.0, 0.0, 0.0]  # Previous error

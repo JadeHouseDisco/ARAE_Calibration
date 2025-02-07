@@ -332,7 +332,7 @@ def idc_calculate(q1, q21, q31, q4, q5, U_L, F_L, T_L, T_W):
 
 # Simulation settings (Only Modify This!) ------------------------------------------------------------------------------------------ #
 # subject = 1 # Human antrhopometric data to use for simulation
-position = 0 # Robot position for calibration
+position = 9 # Robot position for calibration
 
 tolerance = 0.02  # 2% error tolerance for error thresholding
 variation_threshold = 0.01 # Variation tolerance for variation theresholding
@@ -357,9 +357,9 @@ model = mujoco.MjModel.from_xml_path("main_SN475_ARAE.xml")
 data = mujoco.MjData(model)
 
 # PID parameters for each motor
-Kp = [110.0, 110.0, 110.0]  # Proportional gains
-Ki = [50.0, 50.0, 50.0]     # Integral gains
-Kd = [3.0, 3.0, 3.0]     # Derivative gains
+Kp = [50.0, 50.0, 50.0]  # Proportional gains
+Ki = [40.0, 40.0, 40.0]     # Integral gains
+Kd = [2.0, 2.0, 2.0]     # Derivative gains
 
 # PID error tracking
 e_prev = [0.0, 0.0, 0.0]  # Previous error
@@ -461,8 +461,8 @@ while viewer.is_running():
     e_integral = [e_integral[i] + e[i] * dt for i in range(3)]
 
     tau_pid = [Kp[i]*e[i] + Ki[i]*e_integral[i] + Kd[i]*de[i] for i in range(3)]
-    tau_idc = idc_calculate(q1, q21, q31, q4, q5, upper_arm_length, forearm_length, femur_to_humeris, pelvis_to_femur)
-    torques = [tau_idc[i] + tau_pid[i] for i in range(3)]
+    # tau_idc = idc_calculate(q1, q21, q31, q4, q5, upper_arm_length, forearm_length, femur_to_humeris, pelvis_to_femur)
+    torques = [tau_pid[i] for i in range(3)]
 
     # Apply torques
     motor_1_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, 'Motor 1')

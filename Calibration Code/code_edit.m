@@ -49,10 +49,9 @@ Aeq = [];
 Beq = [];
 lb = [-5; -5; -5];
 ub = [5; 5; 5];
-lambda = 1e-4;
 
 coefficients = extract_coefficients(q_values, femur_to_humeris, pelvis_to_femur, upper_arm_length, forearm_length, g, Ugf_U_M, Lgf, F_M, r_to_p_x, r_to_p_y, r_to_p_z);
-humanData = solveForHumanData(coefficients, torques, Aineq, Bineq, Aeq, Beq, lb, ub, lambda);
+humanData = solveForHumanData(coefficients, torques, Aineq, Bineq, Aeq, Beq, lb, ub);
 
 calculated_forearm_mass = humanData(1); % First value: forearm mass
 calculated_upper_arm_product = humanData(2); % Second value: upper arm mass * CoM %
@@ -116,7 +115,7 @@ theoreticalTorque = [];
     end
 end
 
-function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, lb, ub, lambda)
+function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, lb, ub)
     % Initialize empty matrices
     A_total = [];
     B_total = [];
@@ -143,13 +142,6 @@ function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, l
 end
 
 function coefficients = extract_coefficients(q_values, T_L, T_W, U_L, F_L, g, Ugf_U_M, Lgf, F_M, r_to_p_x, r_to_p_y, r_to_p_z)
-    % Function to extract coefficients for each set of q values
-    % Inputs:
-    %   q_values - Array of arrays with each sub-array representing [q1, q21, q31, q4, q5]
-    %   T_L, T_W, U_L, F_L, g - Other relevant parameters
-    % Outputs:
-    %   coefficients - Cell array containing coefficients for each set of q values
-
     % Initialize output
     coefficients = cell(size(q_values, 1), 3);
 
@@ -181,6 +173,7 @@ function coefficients = extract_coefficients(q_values, T_L, T_W, U_L, F_L, g, Ug
 end
 
 function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, g, Ugf_U_M, Lgf, F_M, r_to_p_x, r_to_p_y, r_to_p_z)
+    % Constant declaration
     l1 = 0.068;
     l21 = 0.430;
     l22 = 0.446;
@@ -336,52 +329,34 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
     Pp_e_x = Pp_e(1);
     Pp_e_y = Pp_e(2);
     Pp_e_z = Pp_e(3);
-    
-    disp("Elbow Position")
-    disp(Pp_e_x)
-    disp(Pp_e_y)
-    disp(Pp_e_z)
 
     %-----------------------------------------------------------------------
     % Changed from (Pp_e_x - T_W) to (Pp_e_x + T_W)
+    % Added estimated_h2 and changed the calcualtion of cal_HS from 
+    % Pp_e_z + Eproj_r to Pp_e_z + Eproj_r * cos(estimated_h2)
     %-----------------------------------------------------------------------
     Eproj_r = sqrt(U_L^2 - (Pp_e_x + T_W)^2); % projected radius of elbow position in sagittal plane
     l_H_Eproj = sqrt(Pp_e_y^2 + Pp_e_z^2); % distance between projected elbow joint and hip joint in sagittal plane
-    cal_HS = Pp_e_z + Eproj_r;
-    
-    %-----------------------------------------------------------------------
-    % Need to change Pp_e_y to -Pp_e_y ?
-    %-----------------------------------------------------------------------
+    estimated_h2 = atan2(-Pp_e_y/(T_L-Pp_e_z));
+    cal_HS = Pp_e_z + Eproj_r * cos(estimated_h2);
 
+    %-----------------------------------------------------------------------
+    % Changed from Pp_e_y to -Pp_e_y
+    % Changed from T_W to -T_W
+    % Changed from yout(2) to -yout(2)
+    % When cal_HS < T_L, changed amend_Eproj_r from T_L - Pp_e_z to
+    % (T_L - Pp_e_z) / cos(estimated_h2)
+    %-----------------------------------------------------------------------
     if cal_HS >= T_L
         amend_Eproj_r = Eproj_r;
-        [yout,zout] = circcirc(0,0,T_L,Pp_e_y,Pp_e_z,amend_Eproj_r);
-        Pp_s = [T_W;yout(2);zout(2)];
-     else
-        amend_Eproj_r = T_L-Pp_e_z; % Forcing the projected radius+Pe(z) is equal to l_SH
-        [yout,zout] = circcirc(0,0,T_L,Pp_e_y,Pp_e_z,amend_Eproj_r);
-        Pp_s = [T_W;yout(2);zout(2)];
+        [yout,zout] = circcirc(0,0,T_L,-Pp_e_y,Pp_e_z,amend_Eproj_r);
+        Pp_s = [-T_W;-yout(2);zout(2)];
+    else
+        disp("Projected length < required length")
+        amend_Eproj_r = (T_L - Pp_e_z) / cos(estimated_h2);
+        [yout,zout] = circcirc(0,0,T_L,-Pp_e_y,Pp_e_z,amend_Eproj_r);
+        Pp_s = [-T_W;-yout(2);zout(2)];
     end
-    
-    y1 = 0;
-    z1 = 0;
-    r1 = T_L;
-    y2 = Pp_e_y;
-    z2 = Pp_e_z;
-    r2 = amend_Eproj_r;
-    
-    d = sqrt((y2 - y1)^2 + (z2 - z1)^2);
-    
-    a = (r1^2 - r2^2 + d^2) / (2 * d);
-    h = sqrt(r1^2 - a^2);
-    
-    y2m = y1 + a * (y2 - y1) / d;
-    z2m = z1 + a * (z2 - z1) / d;
-    
-    yout = y2m + h * (y2 - y1) / d;
-    zout = z2m - h * (z2 - z1) / d;
-    
-    Pp_s = [T_W;yout;zout];
     
     % Transforming pelvis base points to shoulder base points
     Ps_e = Trans(-Pp_s(1),-Pp_s(2),-Pp_s(3))*Pp_e;
@@ -398,12 +373,17 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
            0;
            0];
     
+    %-----------------------------------------------------------
+    % Changed from h1 = atan2(P_e(1)/cos(h2),-P_e(2)/cos(h2))
+    % to h1 = atan2(P_e(1),-P_e(2))
+    %-----------------------------------------------------------
+
     U_cal = sqrt(Ps_e(1)^2+Ps_e(2)^2+Ps_e(3)^2);
     h4 = pi/2 - acos((F_L^2 + U_cal^2 - (norm(P_w - P_s))^2)/(2*F_L*U_cal));  % elbow flexion
     h2 = asin(-P_e(3)/U_cal); % shoulder flexion ----X axis
-    h1 = atan2(P_e(1)/cos(h2),-P_e(2)/cos(h2)); % Z axis shoulder abduction
+    h1 = atan2(P_e(1),-P_e(2)); % Z axis shoulder abduction
     vf = Ps_w(1)*cos(h1)+Ps_w(2)*sin(h1);
-    h3 = atan2(-(Ps_w(1)*sin(h1)*sin(h2)-Ps_w(2)*cos(h1)*sin(h2)+Ps_w(3)*cos(h2))/(F_L*cos(h4)),vf/(F_L*cos(h4))); % shoulder rotation
+    h3 = atan2(-(Ps_w(1)*sin(h1)*sin(h2)-Ps_w(2)*cos(h1)*sin(h2)+Ps_w(3)*cos(h2)),vf); % shoulder rotation
     
     % Applying human arm dynamic model to find support force
     Lr_f = F_L/2;

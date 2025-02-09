@@ -16,7 +16,7 @@ femur_to_humeris = 0.4552194642124803;
 pelvis_to_femur = 0.1429514;
 
 %% Read data
-results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/results/with_hand_mass_20p/results.csv';
+results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/results/with_hand_mass_20p_no_IDC/results.csv';
 json_filename = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/simulation_data.json';
 
 opts = detectImportOptions(results_file);
@@ -47,7 +47,7 @@ Aineq = [-1, 0, 1];
 Bineq = -epsilon;
 Aeq = [];
 Beq = [];
-lb = [-10; -10; -10];
+lb = [0; 0; 0];
 ub = [5; 5; 5];
 lambda = 1e-4; 
 
@@ -372,7 +372,7 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
     Pp_s = [T_W;yout;zout];
     
     % Transforming pelvis base points to shoulder base points
-    Ps_e = Trans(-Pp_s(1),-Pp_s(2),-Pp_s(3))*Pp_e; 
+    Ps_e = Trans(-Pp_s(1),-Pp_s(2),-Pp_s(3))*Pp_e;
     Ps_w = Trans(-Pp_s(1),-Pp_s(2),-Pp_s(3))*Pp_w;
     
     % Find human joint angles
@@ -403,8 +403,8 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
     end
     
     t1g = 0;
-    t2g = simplify((F_M*(F_L*Lgf*cos(h2)*sin(h4) - U_L*cos(h2) + F_L*Lgf*cos(h4)*sin(h2)*sin(h3)) - U_L*Ugf_U_M*cos(h2))*g);
-    t3g =  (-F_L*Lgf*F_M*cos(h2)*cos(h3)*cos(h4))*g;
+    t2g = (F_M*(F_L*Lgf*cos(h2)*sin(h4) - U_L*cos(h2) + F_L*Lgf*cos(h4)*sin(h2)*sin(h3)) - U_L*Ugf_U_M*cos(h2))*g;
+    t3g = (-F_L*Lgf*F_M*cos(h2)*cos(h3)*cos(h4))*g;
     t4g = (F_M*(F_L*Lgf*cos(h4)*sin(h2) + F_L*Lgf*cos(h2)*sin(h3)*sin(h4)))*g;
     T_s_r = [0 -1  0;
              1  0  0;

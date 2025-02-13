@@ -16,7 +16,7 @@ femur_to_humeris = 0.4552194642124803;
 pelvis_to_femur = 0.1429514;
 
 %% Read data
-results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/results/angle_fix_with_hand_mass_10p/results.csv';
+results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/results/fixed/results.csv';
 json_filename = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/simulation_data.json';
 
 opts = detectImportOptions(results_file);

@@ -12,19 +12,19 @@ F_L = 0.25;
 %         -0.25*cos(pi/4);
 %         0];
 
-% Ps_e = [0;
-%         -0.25;
-%         0];
-% Ps_w = [0.25;
-%         -0.25
-%         0];
-
-Ps_e = [-0.25*cos(pi/4);
-        0;
-        -0.25*cos(pi/4)];
-Ps_w = [-0.25*cos(pi/4);
-        0;
-        -0.25*cos(pi/4)-0.25];
+Ps_e = [0;
+        -0.25;
+        0];
+Ps_w = [0.25;
+        -0.25
+        0];
+% 
+% Ps_e = [-0.25*cos(pi/4);
+%         0;
+%         -0.25*cos(pi/4)];
+% Ps_w = [-0.25*cos(pi/4);
+%         0;
+%         -0.25*cos(pi/4)-0.25];
 
 P_w = [Ps_w(1);
        Ps_w(2);
@@ -47,3 +47,20 @@ disp(h1)
 disp(h2)
 disp(h3)
 disp(h4)
+
+%% 
+U_L = 0.25;
+F_L = 0.25;
+E_FCOM = F_L/2;
+
+J_h_2 = [U_L*cos(h1)*cos(h2) - E_FCOM*cos(h4)*(cos(h3)*sin(h1) + cos(h1)*sin(h2)*sin(h3)) - E_FCOM*cos(h1)*cos(h2)*sin(h4), E_FCOM*sin(h1)*sin(h2)*sin(h4) - U_L*sin(h1)*sin(h2) - E_FCOM*cos(h2)*cos(h4)*sin(h1)*sin(h3), -E_FCOM*cos(h4)*(cos(h1)*sin(h3) + cos(h3)*sin(h1)*sin(h2)), -E_FCOM*sin(h4)*(cos(h1)*cos(h3) - sin(h1)*sin(h2)*sin(h3)) - E_FCOM*cos(h2)*cos(h4)*sin(h1); U_L*cos(h2)*sin(h1) + E_FCOM*cos(h4)*(cos(h1)*cos(h3) - sin(h1)*sin(h2)*sin(h3)) - E_FCOM*cos(h2)*sin(h1)*sin(h4), U_L*cos(h1)*sin(h2) - E_FCOM*cos(h1)*sin(h2)*sin(h4) + E_FCOM*cos(h1)*cos(h2)*cos(h4)*sin(h3), -E_FCOM*cos(h4)*(sin(h1)*sin(h3) - cos(h1)*cos(h3)*sin(h2)), E_FCOM*cos(h1)*cos(h2)*cos(h4) - E_FCOM*sin(h4)*(cos(h3)*sin(h1) + cos(h1)*sin(h2)*sin(h3)); 0, E_FCOM*cos(h2)*sin(h4) - U_L*cos(h2) + E_FCOM*cos(h4)*sin(h2)*sin(h3), -E_FCOM*cos(h2)*cos(h3)*cos(h4), E_FCOM*cos(h4)*sin(h2) + E_FCOM*cos(h2)*sin(h3)*sin(h4)];
+Tg_h_2 = [5;0;0;6];
+pv_J_h = pinv(J_h_2.');
+F_r2_s = pv_J_h*Tg_h_2;
+
+disp(F_r2_s)
+
+J_h_2_T = J_h_2.';
+F = [0;-40;0];
+tau = J_h_2_T*F;
+disp(tau)

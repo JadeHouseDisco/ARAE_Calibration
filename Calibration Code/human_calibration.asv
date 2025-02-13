@@ -5,18 +5,19 @@ close all
 
 %% Parameter initilization
 % Robot base to pevlis
-r_to_p_x = -0.385;
-r_to_p_y = 0.166;
-r_to_p_z = 0.0465;
+r_to_p_x = -0.573;
+r_to_p_y = -0.05;
+r_to_p_z = 0.162;
 
-% Model antrhopomettric data
-upper_arm_length = 0.2486838396567298;
-forearm_length = 0.25543492290745995;
-femur_to_humeris = 0.355;
-pelvis_to_femur = 0.163;
+% Person antrhopomettric data
+upper_arm_length = 0.265;
+forearm_length = 0.225;
+femur_to_humeris = 0.39;
+pelvis_to_femur = 0.18;
+weight = 75.0;
 
 %% Read data
-results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/results/fixed/results.csv';
+results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/Human Testing/results.csv';
 json_filename = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/simulation_data.json';
 
 opts = detectImportOptions(results_file);
@@ -58,44 +59,32 @@ calculated_forearm_mass = humanData(1); % First value: forearm mass
 calculated_upper_arm_product = humanData(2); % Second value: upper arm mass * CoM %
 calculated_forearm_product = humanData(3); % Third value: forearm mass * CoM %
 calculated_forearm_com_fraction = calculated_forearm_product / calculated_forearm_mass;
-disp("Calculated:")
-disp(calculated_forearm_mass)
-disp(calculated_upper_arm_product)
-disp(calculated_forearm_com_fraction)
 
-% Actual Values:
-actual_forearm_mass = 0.93874053;
-actual_upper_arm_product = 1.0542687374296 * 0.57370836881454366;
-actual_forearm_com_fraction = 0.4974308358852518;
-actual_humData = [actual_forearm_mass; actual_upper_arm_product; actual_forearm_com_fraction];
+% Nominal Values:
+nominal_forearm_mass = weight * 1.87/100;
+nominal_upper_arm_product = (weight * 3.25/100) * 0.427;
+nominal_forearm_com_fraction = 0.417;
+nominal_humData = [nominal_forearm_mass; nominal_upper_arm_product; nominal_forearm_com_fraction];
 
-disp("Actual:")
-disp(actual_forearm_mass)
-disp(actual_upper_arm_product)
-disp(actual_forearm_com_fraction)
+nominalTorque = solveForTheoreticalTorque(coefficients, nominal_humData);
+personlizedTorque = solveForTheoreticalTorque(coefficients, calculated_humanData);
 
-error_forearm_mass = abs(calculated_forearm_mass - actual_forearm_mass) / actual_forearm_mass * 100;
-error_upper_arm_product = abs(calculated_upper_arm_product - actual_upper_arm_product) / actual_upper_arm_product * 100;
-error_forearm_com_fraction = abs(calculated_forearm_com_fraction - actual_forearm_com_fraction) / actual_forearm_com_fraction * 100;
+disp(personlizedTorque)
 
-theoreticalTorque = solveForTheoreticalTorque(coefficients, actual_humData);
-theoreticalTorqueAdjusted = solveForTheoreticalTorque(coefficients, calculated_humanData);
+%% Plot
+figure;
 
-figure; % Create a new figure
-
-% Extract the number of torque components
 num_torque_components = size(torques, 2);
 
-% Define labels for torque components
-torque_labels = {'Torque X', 'Torque Y', 'Torque Z'};
+torque_labels = {'Motor Torque 1', 'Motor Torque 2', 'Motor Torque 3'};
 
 for i = 1:num_torque_components
-    subplot(3, 1, i); % Create a subplot for each torque component
+    subplot(3, 1, i);
     
     plot(1:num_positions, torques(:, i), 'b-o', 'LineWidth', 1.5, 'DisplayName', 'Measured Torque');
     hold on;
-    plot(1:num_positions, theoreticalTorque(:, i), 'r--s', 'LineWidth', 1.5, 'DisplayName', 'Theoretical Torque');
-    plot(1:num_positions, theoreticalTorqueAdjusted(:, i), 'g-.d', 'LineWidth', 1.5, 'DisplayName', 'Adjusted Theoretical Torque');
+    plot(1:num_positions, nominalTorque(:, i), 'r--s', 'LineWidth', 1.5, 'DisplayName', 'Nominal Torque');
+    plot(1:num_positions, personlizedTorque(:, i), 'g-.d', 'LineWidth', 1.5, 'DisplayName', 'Personlized Torque');
     
     xlabel('Position Index');
     ylabel('Torque (Nm)');
@@ -106,22 +95,27 @@ end
 
 hold off;
 
-% Graph
-errors = [error_forearm_mass; error_upper_arm_product; error_forearm_com_fraction]';
-error_labels = {'Forearm Mass', 'Upper Arm Product', 'Forearm COM Fraction'};
-sample_indices = 1:length(error_forearm_mass);
+actual_values = [nominal_forearm_mass, nominal_upper_arm_product, nominal_forearm_com_fraction];
+calculated_values = [calculated_forearm_mass, calculated_upper_arm_product, calculated_forearm_com_fraction];
+
+param_labels = {'Forearm Mass', 'Upper Arm Mass * CoM', 'Forearm CoM Fraction'};
+
 figure;
-bar(sample_indices, errors, 'grouped'); % Grouped bar chart
+bar_data = [actual_values; calculated_values]'; % Transpose for grouped bars
+bar(bar_data);
+
+set(gca, 'XTickLabel', param_labels, 'FontSize', 12);
+ylabel('Value');
+title('Comparison of Actual vs Calculated Values');
+legend({'Actual', 'Calculated'}, 'Location', 'Best');
 grid on;
-set(gca, 'XTick', sample_indices, 'XTickLabel', string(sample_indices));
-set(gca, 'TickLength', [0 0]); % Remove tick marks for cleaner appearance
-xtickangle(45);
-title('Error Analysis of Biomechanical Variables', 'FontSize', 14, 'FontWeight', 'bold');
-xlabel('Sample Index', 'FontSize', 12, 'FontWeight', 'bold');
-ylabel('Error (%)', 'FontSize', 12, 'FontWeight', 'bold');
-legend(error_labels, 'Location', 'northeast', 'FontSize', 10);
-set(gca, 'FontSize', 12);
-ylim([0, max(errors, [], 'all') + 5]); % Add padding to y-axis limits
+
+xtips = get(gca,'XTick');
+ytips = bar_data; % Heights of bars
+for i = 1:numel(xtips)
+    text(xtips(i)-0.15, bar_data(i,1), sprintf('%.2f', bar_data(i,1)), 'FontSize', 10, 'VerticalAlignment', 'bottom');
+    text(xtips(i)+0.15, bar_data(i,2), sprintf('%.2f', bar_data(i,2)), 'FontSize', 10, 'VerticalAlignment', 'bottom');
+end
 
 %% Function Declarations
 function theoreticalTorque = solveForTheoreticalTorque(coeffs, humData)
@@ -353,12 +347,6 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
     Pp_e_y = Pp_e(2);
     Pp_e_z = Pp_e(3);
 
-    disp("Elbow in robot frame")
-    disp(P0_e)
-    
-    disp("Elbow in pelvis frame")
-    disp(Pp_e)
-
     %-----------------------------------------------------------------------
     % Changed from (Pp_e_x - T_W) to (Pp_e_x + T_W)
     % Added estimated_h2 and changed the calcualtion of cal_HS from 
@@ -388,7 +376,6 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
             Pp_s = [-T_W;-yout(2);zout(2)];
         end
     else
-        disp("Projected length < required length")
         amend_Eproj_r = (T_L - Pp_e_z) / cos(estimated_h2);
         [yout,zout] = circcirc(0,0,T_L,-Pp_e_y,Pp_e_z,amend_Eproj_r);
         S_calculated_1 = [yout(1),zout(1)];
@@ -399,9 +386,6 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
             Pp_s = [-T_W;-yout(2);zout(2)];
         end
     end
-    
-    disp("Shoulder in pelvis frame")
-    disp(Pp_s)
 
     % Transforming pelvis base points to shoulder base points
     Ps_e = Trans(-Pp_s(1),-Pp_s(2),-Pp_s(3))*Pp_e;
@@ -418,9 +402,6 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
            0;
            0];
     
-    disp("Elbow position in shoulder frame")
-    disp(P_e)
-    
     %-----------------------------------------------------------
     % Changed from h1 = atan2(P_e(1)/cos(h2),-P_e(2)/cos(h2))
     % to h1 = atan2(P_e(1),-P_e(2))
@@ -432,12 +413,6 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
     h1 = atan2(P_e(1),-P_e(2)); % Z axis shoulder abduction
     vf = Ps_w(1)*cos(h1)+Ps_w(2)*sin(h1);
     h3 = atan2(-(Ps_w(1)*sin(h1)*sin(h2)-Ps_w(2)*cos(h1)*sin(h2)+Ps_w(3)*cos(h2)),vf); % shoulder rotation
-
-    disp("Human joint angles")
-    disp(h1)
-    disp(h2)
-    disp(h3)
-    disp(h4)
     
     % Applying human arm dynamic model to find support force
     Lr_f = F_L/2;
@@ -447,34 +422,6 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
     elseif h4 < -80/180*pi
         h4 = -80/180*pi;
     end
-    
-    % E_FCOM = F_L * Lgf;
-    % S_FCOM_J = [U_L*cos(h1)*cos(h2) - E_FCOM*cos(h4)*(cos(h3)*sin(h1) + cos(h1)*sin(h2)*sin(h3)) - E_FCOM*cos(h1)*cos(h2)*sin(h4), E_FCOM*sin(h1)*sin(h2)*sin(h4) - U_L*sin(h1)*sin(h2) - E_FCOM*cos(h2)*cos(h4)*sin(h1)*sin(h3), -E_FCOM*cos(h4)*(cos(h1)*sin(h3) + cos(h3)*sin(h1)*sin(h2)), -E_FCOM*sin(h4)*(cos(h1)*cos(h3) - sin(h1)*sin(h2)*sin(h3)) - E_FCOM*cos(h2)*cos(h4)*sin(h1); U_L*cos(h2)*sin(h1) + E_FCOM*cos(h4)*(cos(h1)*cos(h3) - sin(h1)*sin(h2)*sin(h3)) - E_FCOM*cos(h2)*sin(h1)*sin(h4), U_L*cos(h1)*sin(h2) - E_FCOM*cos(h1)*sin(h2)*sin(h4) + E_FCOM*cos(h1)*cos(h2)*cos(h4)*sin(h3), -E_FCOM*cos(h4)*(sin(h1)*sin(h3) - cos(h1)*cos(h3)*sin(h2)), E_FCOM*cos(h1)*cos(h2)*cos(h4) - E_FCOM*sin(h4)*(cos(h3)*sin(h1) + cos(h1)*sin(h2)*sin(h3)); 0, E_FCOM*cos(h2)*sin(h4) - U_L*cos(h2) + E_FCOM*cos(h4)*sin(h2)*sin(h3), -E_FCOM*cos(h2)*cos(h3)*cos(h4), E_FCOM*cos(h4)*sin(h2) + E_FCOM*cos(h2)*sin(h3)*sin(h4)];
-    % S_FCOM_J_T = S_FCOM_J.';
-    % F_FCOM = [0;0;-F_M*g];
-    % S_FCOM_tau = S_FCOM_J_T*F_FCOM;
-    % 
-    % U_M = 1.0542687374296; % Dummy value
-    % Ugf = 0.57370836881454366; % Dummy value
-    % S_UCOM = U_L * Ugf;
-    % S_UCOM_J = [S_UCOM*cos(h1)*cos(h2), -S_UCOM*sin(h1)*sin(h2), 0; S_UCOM*sin(h1)*cos(h2), S_UCOM*cos(h1)*sin(h2), 0; 0, -S_UCOM*cos(h2), 0];
-    % S_UCOM_J_T = S_UCOM_J.';
-    % F_UCOM = [0;0;-U_M*g];
-    % S_UCOM_tau = S_UCOM_J_T*F_UCOM;
-    % 
-    % t1g = S_FCOM_tau(1) + S_UCOM_tau(1);
-    % t2g = S_FCOM_tau(2) + S_UCOM_tau(2);
-    % t3g = S_FCOM_tau(3) + S_UCOM_tau(3);
-    % t4g = S_FCOM_tau(4);
-
-
-
-    % t1g = 0;
-    % t2g = (-F_M*g*(F_L*Lgf*(sin(h1)*cos(h3)*cos(h4)+cos(h1)*sin(h2)*sin(h3)*cos(h4)+cos(h1)*cos(h2)*sin(h4))-U_L*cos(h1)*cos(h2))+Ugf_U_M*g*U_L*cos(h1)*cos(h2))*cos(h1) + (F_M*g*(F_L*Lgf*(cos(h1)*cos(h3)*cos(h4)-sin(h1)*sin(h2)*sin(h3)*cos(h4)-sin(h1)*cos(h2)*sin(h4))+U_L*sin(h1)*cos(h2))+Ugf_U_M*g*U_L*sin(h1)*cos(h2))*sin(h1);
-    % t3g = (-F_M*g*(F_L*Lgf*(sin(h1)*cos(h3)*cos(h4)+cos(h1)*sin(h2)*sin(h3)*cos(h4)+cos(h1)*cos(h2)*sin(h4))-U_L*cos(h1)*cos(h2))+Ugf_U_M*g*U_L*cos(h1)*cos(h2))*(-sin(h1)*cos(h2)) + (F_M*g*(F_L*Lgf*(cos(h1)*cos(h3)*cos(h4)-sin(h1)*sin(h2)*sin(h3)*cos(h4)-sin(h1)*cos(h2)*sin(h4))+U_L*sin(h1)*cos(h2))+Ugf_U_M*g*U_L*sin(h1)*cos(h2))*(cos(h1)*cos(h2));
-    % t4g = (-F_M*g*(F_L*Lgf*(sin(h1)*cos(h3)*cos(h4)+cos(h1)*sin(h2)*sin(h3)*cos(h4)+cos(h1)*cos(h2)*sin(h4))-U_L*cos(h1)*cos(h2))+Ugf_U_M*g*U_L*cos(h1)*cos(h2))*(cos(h1)*sin(h3)+sin(h1)*sin(h2)*cos(h3)) + (F_M*g*(F_L*Lgf*(cos(h1)*cos(h3)*cos(h4)-sin(h1)*sin(h2)*sin(h3)*cos(h4)-sin(h1)*cos(h2)*sin(h4))+U_L*sin(h1)*cos(h2))+Ugf_U_M*g*U_L*sin(h1)*cos(h2))*(sin(h1)*sin(h3)-cos(h1)*sin(h2)*cos(h3));
-    
-
 
     t1g = 0;
     t2g = (F_M*(F_L*Lgf*cos(h2)*sin(h4) - U_L*cos(h2) + F_L*Lgf*cos(h4)*sin(h2)*sin(h3)) - U_L*Ugf_U_M*cos(h2))*g;
@@ -490,12 +437,6 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
     pv_J_h = pinv(J_h_2.');
     F_r2_s = pv_J_h*Tg_h_2;
     F_r2 = T_s_r * F_r2_s;
-    
-    % Find torque required by each motor
-    
-    %-----------------------------------------------------------
-    % Changed from w14+F_r2(3) to -w14+F_r2(3)
-    %-----------------------------------------------------------
 
     wl4 = (0.6774) * g;
     F = [F_r2(1);
@@ -504,9 +445,6 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
     J = [-l21*cos(q21 - pi/2)*sin(q1) - cos(q21 + q31 + pi/2)*cos(q21 - pi/2)*sin(q1)*(l22 - l31) - sin(q21 + q31 + pi/2)*sin(q1)*sin(q21 - pi/2)*(l22 - l31), -l21*cos(q1)*sin(q21 - pi/2), cos(q21 + q31 + pi/2)*cos(q1)*sin(q21 - pi/2)*(l22 - l31) - sin(q21 + q31 + pi/2)*cos(q1)*cos(q21 - pi/2)*(l22 - l31); l21*cos(q1)*cos(q21 - pi/2) + cos(q21 + q31 + pi/2)*cos(q1)*cos(q21 - pi/2)*(l22 - l31) + sin(q21 + q31 + pi/2)*cos(q1)*sin(q21 - pi/2)*(l22 - l31), -l21*sin(q1)*sin(q21 - pi/2), cos(q21 + q31 + pi/2)*sin(q1)*sin(q21 - pi/2)*(l22 - l31) - sin(q21 + q31 + pi/2)*cos(q21 - pi/2)*sin(q1)*(l22 - l31); 0, -l21*cos(q21 - pi/2), cos(q21 + q31 + pi/2)*cos(q21 - pi/2)*(l22 - l31) + sin(q21 + q31 + pi/2)*sin(q21 - pi/2)*(l22 - l31)];
     JF = (J.')*F;
 
-    %-----------------------------------------------------------
-    % Changed from JF(n,n) to -JF(n,n)
-    %-----------------------------------------------------------
     t1g  = JF(1,1);
     t21g = JF(2,1) + (- m22*(l32*sin(q21 + q31 - (5*pi)/2)*sin(q31) + l32*cos(q21 + q31 - (5*pi)/2)*cos(q31)) - m32*(x32*cos(q21 + q31 - (5*pi)/2)*cos(q31) + x32*sin(q21 + q31 - (5*pi)/2)*sin(q31)) - lg21*m21*cos(r21 - q21 + pi/2))*g;
     t31g = JF(3,1) + (m22*(l31*cos(q31) + lg22*cos(q21 + q31 + r22 + pi/2)*(cos(q21 + q31 - (5*pi)/2)*cos(q31) + sin(q21 + q31 - (5*pi)/2)*sin(q31)) - lg22*sin(q21 + q31 + r22 + pi/2)*(cos(q21 + q31 - (5*pi)/2)*sin(q31) - sin(q21 + q31 - (5*pi)/2)*cos(q31))) + l31*m32*cos(q31) + m31*x31*cos(q31))*g;

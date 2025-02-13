@@ -332,7 +332,7 @@ def idc_calculate(q1, q21, q31, q4, q5, U_L, F_L, T_L, T_W):
 
 # Simulation settings (Only Modify This!) ------------------------------------------------------------------------------------------ #
 # subject = 1 # Human antrhopometric data to use for simulation
-position = 9 # Robot position for calibration
+position = 0 # Robot position for calibration
 
 tolerance = 0.02  # 2% error tolerance for error thresholding
 variation_threshold = 0.01 # Variation tolerance for variation theresholding
@@ -381,6 +381,7 @@ humerus_r_id = model.body('humerus_r').id
 ulna_r_id = model.body('ulna_r').id
 radius_r_id = model.body('radius_r').id
 hand_r_id = model.body('hand_r').id
+robot_base_id = model.body('Link7').id
 
 # Extract original positions from the model
 pelvis_pos_original = model.body_pos[pelvis_id]
@@ -510,6 +511,11 @@ while viewer.is_running():
             break
 
     e_prev = e
+
+    print(data.xpos[robot_base_id])
+    print(data.xpos[torso_id])
+    print(data.xpos[humerus_r_id])
+    print(data.xpos[ulna_r_id])
     
     viewer.sync()
 

@@ -6,17 +6,17 @@ close all
 %% Parameter initilization
 % Robot base to pevlis
 r_to_p_x = -0.385;
-r_to_p_y = 0.275;
-r_to_p_z = 0.1335;
+r_to_p_y = 0.166;
+r_to_p_z = 0.0465;
 
 % Model antrhopomettric data
 upper_arm_length = 0.2486838396567298;
 forearm_length = 0.25543492290745995;
-femur_to_humeris = 0.4552194642124803;
-pelvis_to_femur = 0.1429514;
+femur_to_humeris = 0.355;
+pelvis_to_femur = 0.163;
 
 %% Read data
-results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/results/with_hand_mass_20p/results.csv';
+results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/results/fixed/results.csv';
 json_filename = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/simulation_data.json';
 
 opts = detectImportOptions(results_file);
@@ -47,12 +47,12 @@ Aineq = [-1, 0, 1];
 Bineq = -epsilon;
 Aeq = [];
 Beq = [];
-lb = [-10; -10; -10];
+lb = [0; 0; 0];
 ub = [5; 5; 5];
-lambda = 1e-4; 
 
 coefficients = extract_coefficients(q_values, femur_to_humeris, pelvis_to_femur, upper_arm_length, forearm_length, g, Ugf_U_M, Lgf, F_M, r_to_p_x, r_to_p_y, r_to_p_z);
-humanData = solveForHumanData(coefficients, torques, Aineq, Bineq, Aeq, Beq, lb, ub, lambda);
+humanData = solveForHumanData(coefficients, torques, Aineq, Bineq, Aeq, Beq, lb, ub);
+calculated_humanData = [humanData(1);humanData(2);humanData(3)];
 
 calculated_forearm_mass = humanData(1); % First value: forearm mass
 calculated_upper_arm_product = humanData(2); % Second value: upper arm mass * CoM %
@@ -79,10 +79,32 @@ error_upper_arm_product = abs(calculated_upper_arm_product - actual_upper_arm_pr
 error_forearm_com_fraction = abs(calculated_forearm_com_fraction - actual_forearm_com_fraction) / actual_forearm_com_fraction * 100;
 
 theoreticalTorque = solveForTheoreticalTorque(coefficients, actual_humData);
-disp("Torque from simulation:")
-disp(torques)
-disp("Theoretical Torque:")
-disp(theoreticalTorque)
+theoreticalTorqueAdjusted = solveForTheoreticalTorque(coefficients, calculated_humanData);
+
+figure; % Create a new figure
+
+% Extract the number of torque components
+num_torque_components = size(torques, 2);
+
+% Define labels for torque components
+torque_labels = {'Torque X', 'Torque Y', 'Torque Z'};
+
+for i = 1:num_torque_components
+    subplot(3, 1, i); % Create a subplot for each torque component
+    
+    plot(1:num_positions, torques(:, i), 'b-o', 'LineWidth', 1.5, 'DisplayName', 'Measured Torque');
+    hold on;
+    plot(1:num_positions, theoreticalTorque(:, i), 'r--s', 'LineWidth', 1.5, 'DisplayName', 'Theoretical Torque');
+    plot(1:num_positions, theoreticalTorqueAdjusted(:, i), 'g-.d', 'LineWidth', 1.5, 'DisplayName', 'Adjusted Theoretical Torque');
+    
+    xlabel('Position Index');
+    ylabel('Torque (Nm)');
+    title(['Comparison of ', torque_labels{i}]);
+    legend('Location', 'best');
+    grid on;
+end
+
+hold off;
 
 % Graph
 errors = [error_forearm_mass; error_upper_arm_product; error_forearm_com_fraction]';
@@ -116,7 +138,7 @@ theoreticalTorque = [];
     end
 end
 
-function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, lb, ub, lambda)
+function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, lb, ub)
     % Initialize empty matrices
     A_total = [];
     B_total = [];
@@ -143,13 +165,6 @@ function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, l
 end
 
 function coefficients = extract_coefficients(q_values, T_L, T_W, U_L, F_L, g, Ugf_U_M, Lgf, F_M, r_to_p_x, r_to_p_y, r_to_p_z)
-    % Function to extract coefficients for each set of q values
-    % Inputs:
-    %   q_values - Array of arrays with each sub-array representing [q1, q21, q31, q4, q5]
-    %   T_L, T_W, U_L, F_L, g - Other relevant parameters
-    % Outputs:
-    %   coefficients - Cell array containing coefficients for each set of q values
-
     % Initialize output
     coefficients = cell(size(q_values, 1), 3);
 
@@ -181,6 +196,7 @@ function coefficients = extract_coefficients(q_values, T_L, T_W, U_L, F_L, g, Ug
 end
 
 function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, g, Ugf_U_M, Lgf, F_M, r_to_p_x, r_to_p_y, r_to_p_z)
+    % Constant declaration
     l1 = 0.068;
     l21 = 0.430;
     l22 = 0.446;
@@ -336,43 +352,59 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
     Pp_e_x = Pp_e(1);
     Pp_e_y = Pp_e(2);
     Pp_e_z = Pp_e(3);
+
+    disp("Elbow in robot frame")
+    disp(P0_e)
     
-    Eproj_r = sqrt(U_L^2 - (Pp_e_x - T_W)^2); % projected radius of elbow position in sagittal plane
+    disp("Elbow in pelvis frame")
+    disp(Pp_e)
+
+    %-----------------------------------------------------------------------
+    % Changed from (Pp_e_x - T_W) to (Pp_e_x + T_W)
+    % Added estimated_h2 and changed the calcualtion of cal_HS from 
+    % Pp_e_z + Eproj_r to Pp_e_z + Eproj_r * cos(estimated_h2)
+    %-----------------------------------------------------------------------
+    Eproj_r = sqrt(U_L^2 - (Pp_e_x + T_W)^2); % projected radius of elbow position in sagittal plane
     l_H_Eproj = sqrt(Pp_e_y^2 + Pp_e_z^2); % distance between projected elbow joint and hip joint in sagittal plane
-    cal_HS = Pp_e_z + Eproj_r;
-    
+    estimated_h2 = atan2(-Pp_e_y,(T_L-Pp_e_z));
+    cal_HS = Pp_e_z + Eproj_r * cos(estimated_h2);
+
+    %-----------------------------------------------------------------------
+    % Changed from Pp_e_y to -Pp_e_y
+    % Changed from T_W to -T_W
+    % Changed from yout(2) to -yout(2)
+    % When cal_HS < T_L, changed amend_Eproj_r from T_L - Pp_e_z to
+    % (T_L - Pp_e_z) / cos(estimated_h2)
+    %-----------------------------------------------------------------------
+    S_predicted = [0, T_L];
     if cal_HS >= T_L
         amend_Eproj_r = Eproj_r;
-        [yout,zout] = circcirc(0,0,T_L,Pp_e_y,Pp_e_z,amend_Eproj_r);
-        Pp_s = [T_W;yout(2);zout(2)];
-     else
-        amend_Eproj_r = T_L-Pp_e_z; % Forcing the projected radius+Pe(z) is equal to l_SH
-        [yout,zout] = circcirc(0,0,T_L,Pp_e_y,Pp_e_z,amend_Eproj_r);
-        Pp_s = [T_W;yout(2);zout(2)];
+        [yout,zout] = circcirc(0,0,T_L,-Pp_e_y,Pp_e_z,amend_Eproj_r);
+        S_calculated_1 = [yout(1),zout(1)];
+        S_calculated_2 = [yout(2),zout(2)];
+        if (norm(S_predicted- S_calculated_1) < norm(S_predicted- S_calculated_2))
+            Pp_s = [-T_W;-yout(1);zout(1)];
+        else 
+            Pp_s = [-T_W;-yout(2);zout(2)];
+        end
+    else
+        disp("Projected length < required length")
+        amend_Eproj_r = (T_L - Pp_e_z) / cos(estimated_h2);
+        [yout,zout] = circcirc(0,0,T_L,-Pp_e_y,Pp_e_z,amend_Eproj_r);
+        S_calculated_1 = [yout(1),zout(1)];
+        S_calculated_2 = [yout(2),zout(2)];
+        if (norm(S_predicted- S_calculated_1) < norm(S_predicted- S_calculated_2))
+            Pp_s = [-T_W;-yout(1);zout(1)];
+        else 
+            Pp_s = [-T_W;-yout(2);zout(2)];
+        end
     end
     
-    y1 = 0;
-    z1 = 0;
-    r1 = T_L;
-    y2 = Pp_e_y;
-    z2 = Pp_e_z;
-    r2 = amend_Eproj_r;
-    
-    d = sqrt((y2 - y1)^2 + (z2 - z1)^2);
-    
-    a = (r1^2 - r2^2 + d^2) / (2 * d);
-    h = sqrt(r1^2 - a^2);
-    
-    y2m = y1 + a * (y2 - y1) / d;
-    z2m = z1 + a * (z2 - z1) / d;
-    
-    yout = y2m + h * (y2 - y1) / d;
-    zout = z2m - h * (z2 - z1) / d;
-    
-    Pp_s = [T_W;yout;zout];
-    
+    disp("Shoulder in pelvis frame")
+    disp(Pp_s)
+
     % Transforming pelvis base points to shoulder base points
-    Ps_e = Trans(-Pp_s(1),-Pp_s(2),-Pp_s(3))*Pp_e; 
+    Ps_e = Trans(-Pp_s(1),-Pp_s(2),-Pp_s(3))*Pp_e;
     Ps_w = Trans(-Pp_s(1),-Pp_s(2),-Pp_s(3))*Pp_w;
     
     % Find human joint angles
@@ -386,12 +418,26 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
            0;
            0];
     
+    disp("Elbow position in shoulder frame")
+    disp(P_e)
+    
+    %-----------------------------------------------------------
+    % Changed from h1 = atan2(P_e(1)/cos(h2),-P_e(2)/cos(h2))
+    % to h1 = atan2(P_e(1),-P_e(2))
+    %-----------------------------------------------------------
+
     U_cal = sqrt(Ps_e(1)^2+Ps_e(2)^2+Ps_e(3)^2);
     h4 = pi/2 - acos((F_L^2 + U_cal^2 - (norm(P_w - P_s))^2)/(2*F_L*U_cal));  % elbow flexion
     h2 = asin(-P_e(3)/U_cal); % shoulder flexion ----X axis
-    h1 = atan2(P_e(1)/cos(h2),-P_e(2)/cos(h2)); % Z axis shoulder abduction
+    h1 = atan2(P_e(1),-P_e(2)); % Z axis shoulder abduction
     vf = Ps_w(1)*cos(h1)+Ps_w(2)*sin(h1);
-    h3 = atan2(-(Ps_w(1)*sin(h1)*sin(h2)-Ps_w(2)*cos(h1)*sin(h2)+Ps_w(3)*cos(h2))/(F_L*cos(h4)),vf/(F_L*cos(h4))); % shoulder rotation
+    h3 = atan2(-(Ps_w(1)*sin(h1)*sin(h2)-Ps_w(2)*cos(h1)*sin(h2)+Ps_w(3)*cos(h2)),vf); % shoulder rotation
+
+    disp("Human joint angles")
+    disp(h1)
+    disp(h2)
+    disp(h3)
+    disp(h4)
     
     % Applying human arm dynamic model to find support force
     Lr_f = F_L/2;
@@ -402,27 +448,65 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
         h4 = -80/180*pi;
     end
     
+    % E_FCOM = F_L * Lgf;
+    % S_FCOM_J = [U_L*cos(h1)*cos(h2) - E_FCOM*cos(h4)*(cos(h3)*sin(h1) + cos(h1)*sin(h2)*sin(h3)) - E_FCOM*cos(h1)*cos(h2)*sin(h4), E_FCOM*sin(h1)*sin(h2)*sin(h4) - U_L*sin(h1)*sin(h2) - E_FCOM*cos(h2)*cos(h4)*sin(h1)*sin(h3), -E_FCOM*cos(h4)*(cos(h1)*sin(h3) + cos(h3)*sin(h1)*sin(h2)), -E_FCOM*sin(h4)*(cos(h1)*cos(h3) - sin(h1)*sin(h2)*sin(h3)) - E_FCOM*cos(h2)*cos(h4)*sin(h1); U_L*cos(h2)*sin(h1) + E_FCOM*cos(h4)*(cos(h1)*cos(h3) - sin(h1)*sin(h2)*sin(h3)) - E_FCOM*cos(h2)*sin(h1)*sin(h4), U_L*cos(h1)*sin(h2) - E_FCOM*cos(h1)*sin(h2)*sin(h4) + E_FCOM*cos(h1)*cos(h2)*cos(h4)*sin(h3), -E_FCOM*cos(h4)*(sin(h1)*sin(h3) - cos(h1)*cos(h3)*sin(h2)), E_FCOM*cos(h1)*cos(h2)*cos(h4) - E_FCOM*sin(h4)*(cos(h3)*sin(h1) + cos(h1)*sin(h2)*sin(h3)); 0, E_FCOM*cos(h2)*sin(h4) - U_L*cos(h2) + E_FCOM*cos(h4)*sin(h2)*sin(h3), -E_FCOM*cos(h2)*cos(h3)*cos(h4), E_FCOM*cos(h4)*sin(h2) + E_FCOM*cos(h2)*sin(h3)*sin(h4)];
+    % S_FCOM_J_T = S_FCOM_J.';
+    % F_FCOM = [0;0;-F_M*g];
+    % S_FCOM_tau = S_FCOM_J_T*F_FCOM;
+    % 
+    % U_M = 1.0542687374296; % Dummy value
+    % Ugf = 0.57370836881454366; % Dummy value
+    % S_UCOM = U_L * Ugf;
+    % S_UCOM_J = [S_UCOM*cos(h1)*cos(h2), -S_UCOM*sin(h1)*sin(h2), 0; S_UCOM*sin(h1)*cos(h2), S_UCOM*cos(h1)*sin(h2), 0; 0, -S_UCOM*cos(h2), 0];
+    % S_UCOM_J_T = S_UCOM_J.';
+    % F_UCOM = [0;0;-U_M*g];
+    % S_UCOM_tau = S_UCOM_J_T*F_UCOM;
+    % 
+    % t1g = S_FCOM_tau(1) + S_UCOM_tau(1);
+    % t2g = S_FCOM_tau(2) + S_UCOM_tau(2);
+    % t3g = S_FCOM_tau(3) + S_UCOM_tau(3);
+    % t4g = S_FCOM_tau(4);
+
+
+
+    % t1g = 0;
+    % t2g = (-F_M*g*(F_L*Lgf*(sin(h1)*cos(h3)*cos(h4)+cos(h1)*sin(h2)*sin(h3)*cos(h4)+cos(h1)*cos(h2)*sin(h4))-U_L*cos(h1)*cos(h2))+Ugf_U_M*g*U_L*cos(h1)*cos(h2))*cos(h1) + (F_M*g*(F_L*Lgf*(cos(h1)*cos(h3)*cos(h4)-sin(h1)*sin(h2)*sin(h3)*cos(h4)-sin(h1)*cos(h2)*sin(h4))+U_L*sin(h1)*cos(h2))+Ugf_U_M*g*U_L*sin(h1)*cos(h2))*sin(h1);
+    % t3g = (-F_M*g*(F_L*Lgf*(sin(h1)*cos(h3)*cos(h4)+cos(h1)*sin(h2)*sin(h3)*cos(h4)+cos(h1)*cos(h2)*sin(h4))-U_L*cos(h1)*cos(h2))+Ugf_U_M*g*U_L*cos(h1)*cos(h2))*(-sin(h1)*cos(h2)) + (F_M*g*(F_L*Lgf*(cos(h1)*cos(h3)*cos(h4)-sin(h1)*sin(h2)*sin(h3)*cos(h4)-sin(h1)*cos(h2)*sin(h4))+U_L*sin(h1)*cos(h2))+Ugf_U_M*g*U_L*sin(h1)*cos(h2))*(cos(h1)*cos(h2));
+    % t4g = (-F_M*g*(F_L*Lgf*(sin(h1)*cos(h3)*cos(h4)+cos(h1)*sin(h2)*sin(h3)*cos(h4)+cos(h1)*cos(h2)*sin(h4))-U_L*cos(h1)*cos(h2))+Ugf_U_M*g*U_L*cos(h1)*cos(h2))*(cos(h1)*sin(h3)+sin(h1)*sin(h2)*cos(h3)) + (F_M*g*(F_L*Lgf*(cos(h1)*cos(h3)*cos(h4)-sin(h1)*sin(h2)*sin(h3)*cos(h4)-sin(h1)*cos(h2)*sin(h4))+U_L*sin(h1)*cos(h2))+Ugf_U_M*g*U_L*sin(h1)*cos(h2))*(sin(h1)*sin(h3)-cos(h1)*sin(h2)*cos(h3));
+    
+
+
     t1g = 0;
-    t2g = simplify((F_M*(F_L*Lgf*cos(h2)*sin(h4) - U_L*cos(h2) + F_L*Lgf*cos(h4)*sin(h2)*sin(h3)) - U_L*Ugf_U_M*cos(h2))*g);
-    t3g =  (-F_L*Lgf*F_M*cos(h2)*cos(h3)*cos(h4))*g;
+    t2g = (F_M*(F_L*Lgf*cos(h2)*sin(h4) - U_L*cos(h2) + F_L*Lgf*cos(h4)*sin(h2)*sin(h3)) - U_L*Ugf_U_M*cos(h2))*g;
+    t3g = (-F_L*Lgf*F_M*cos(h2)*cos(h3)*cos(h4))*g;
     t4g = (F_M*(F_L*Lgf*cos(h4)*sin(h2) + F_L*Lgf*cos(h2)*sin(h3)*sin(h4)))*g;
+
     T_s_r = [0 -1  0;
              1  0  0;
              0  0  1];
-    J_h_2 = [U_L*cos(h1)*cos(h2) - Lr_f*cos(h4)*(cos(h3)*sin(h1) + cos(h1)*sin(h2)*sin(h3)) - Lr_f*cos(h1)*cos(h2)*sin(h4), Lr_f*sin(h1)*sin(h2)*sin(h4) - U_L*sin(h1)*sin(h2) - Lr_f*cos(h2)*cos(h4)*sin(h1)*sin(h3), -Lr_f*cos(h4)*(cos(h1)*sin(h3) + cos(h3)*sin(h1)*sin(h2)), - Lr_f*sin(h4)*(cos(h1)*cos(h3) - sin(h1)*sin(h2)*sin(h3)) - Lr_f*cos(h2)*cos(h4)*sin(h1); U_L*cos(h2)*sin(h1) + Lr_f*cos(h4)*(cos(h1)*cos(h3) - sin(h1)*sin(h2)*sin(h3)) - Lr_f*cos(h2)*sin(h1)*sin(h4), U_L*cos(h1)*sin(h2) - Lr_f*cos(h1)*sin(h2)*sin(h4) + Lr_f*cos(h1)*cos(h2)*cos(h4)*sin(h3), -Lr_f*cos(h4)*(sin(h1)*sin(h3) - cos(h1)*cos(h3)*sin(h2)), Lr_f*cos(h1)*cos(h2)*cos(h4) - Lr_f*sin(h4)*(cos(h3)*sin(h1) + cos(h1)*sin(h2)*sin(h3)); 0, Lr_f*cos(h2)*sin(h4) - U_L*cos(h2) + Lr_f*cos(h4)*sin(h2)*sin(h3), -Lr_f*cos(h2)*cos(h3)*cos(h4), Lr_f*cos(h4)*sin(h2) + Lr_f*cos(h2)*sin(h3)*sin(h4)];
+
+    J_h_2 = [U_L*cos(h1)*cos(h2) - Lr_f*cos(h4)*(cos(h3)*sin(h1) + cos(h1)*sin(h2)*sin(h3)) - Lr_f*cos(h1)*cos(h2)*sin(h4), Lr_f*sin(h1)*sin(h2)*sin(h4) - U_L*sin(h1)*sin(h2) - Lr_f*cos(h2)*cos(h4)*sin(h1)*sin(h3), -Lr_f*cos(h4)*(cos(h1)*sin(h3) + cos(h3)*sin(h1)*sin(h2)), -Lr_f*sin(h4)*(cos(h1)*cos(h3) - sin(h1)*sin(h2)*sin(h3)) - Lr_f*cos(h2)*cos(h4)*sin(h1); U_L*cos(h2)*sin(h1) + Lr_f*cos(h4)*(cos(h1)*cos(h3) - sin(h1)*sin(h2)*sin(h3)) - Lr_f*cos(h2)*sin(h1)*sin(h4), U_L*cos(h1)*sin(h2) - Lr_f*cos(h1)*sin(h2)*sin(h4) + Lr_f*cos(h1)*cos(h2)*cos(h4)*sin(h3), -Lr_f*cos(h4)*(sin(h1)*sin(h3) - cos(h1)*cos(h3)*sin(h2)), Lr_f*cos(h1)*cos(h2)*cos(h4) - Lr_f*sin(h4)*(cos(h3)*sin(h1) + cos(h1)*sin(h2)*sin(h3)); 0, Lr_f*cos(h2)*sin(h4) - U_L*cos(h2) + Lr_f*cos(h4)*sin(h2)*sin(h3), -Lr_f*cos(h2)*cos(h3)*cos(h4), Lr_f*cos(h4)*sin(h2) + Lr_f*cos(h2)*sin(h3)*sin(h4)];
     Tg_h_2 = [t1g;t2g;t3g;t4g];
     pv_J_h = pinv(J_h_2.');
     F_r2_s = pv_J_h*Tg_h_2;
     F_r2 = T_s_r * F_r2_s;
     
     % Find torque required by each motor
+    
+    %-----------------------------------------------------------
+    % Changed from w14+F_r2(3) to -w14+F_r2(3)
+    %-----------------------------------------------------------
+
     wl4 = (0.6774) * g;
     F = [F_r2(1);
         F_r2(2);
         wl4+F_r2(3)];
-    J = [- l21*cos(q21 - pi/2)*sin(q1) - cos(q21 + q31 + pi/2)*cos(q21 - pi/2)*sin(q1)*(l22 - l31) - sin(q21 + q31 + pi/2)*sin(q1)*sin(q21 - pi/2)*(l22 - l31), -l21*cos(q1)*sin(q21 - pi/2), cos(q21 + q31 + pi/2)*cos(q1)*sin(q21 - pi/2)*(l22 - l31) - sin(q21 + q31 + pi/2)*cos(q1)*cos(q21 - pi/2)*(l22 - l31); l21*cos(q1)*cos(q21 - pi/2) + cos(q21 + q31 + pi/2)*cos(q1)*cos(q21 - pi/2)*(l22 - l31) + sin(q21 + q31 + pi/2)*cos(q1)*sin(q21 - pi/2)*(l22 - l31), -l21*sin(q1)*sin(q21 - pi/2), cos(q21 + q31 + pi/2)*sin(q1)*sin(q21 - pi/2)*(l22 - l31) - sin(q21 + q31 + pi/2)*cos(q21 - pi/2)*sin(q1)*(l22 - l31); 0, -l21*cos(q21 - pi/2), cos(q21 + q31 + pi/2)*cos(q21 - pi/2)*(l22 - l31) + sin(q21 + q31 + pi/2)*sin(q21 - pi/2)*(l22 - l31)];
+    J = [-l21*cos(q21 - pi/2)*sin(q1) - cos(q21 + q31 + pi/2)*cos(q21 - pi/2)*sin(q1)*(l22 - l31) - sin(q21 + q31 + pi/2)*sin(q1)*sin(q21 - pi/2)*(l22 - l31), -l21*cos(q1)*sin(q21 - pi/2), cos(q21 + q31 + pi/2)*cos(q1)*sin(q21 - pi/2)*(l22 - l31) - sin(q21 + q31 + pi/2)*cos(q1)*cos(q21 - pi/2)*(l22 - l31); l21*cos(q1)*cos(q21 - pi/2) + cos(q21 + q31 + pi/2)*cos(q1)*cos(q21 - pi/2)*(l22 - l31) + sin(q21 + q31 + pi/2)*cos(q1)*sin(q21 - pi/2)*(l22 - l31), -l21*sin(q1)*sin(q21 - pi/2), cos(q21 + q31 + pi/2)*sin(q1)*sin(q21 - pi/2)*(l22 - l31) - sin(q21 + q31 + pi/2)*cos(q21 - pi/2)*sin(q1)*(l22 - l31); 0, -l21*cos(q21 - pi/2), cos(q21 + q31 + pi/2)*cos(q21 - pi/2)*(l22 - l31) + sin(q21 + q31 + pi/2)*sin(q21 - pi/2)*(l22 - l31)];
     JF = (J.')*F;
-    
+
+    %-----------------------------------------------------------
+    % Changed from JF(n,n) to -JF(n,n)
+    %-----------------------------------------------------------
     t1g  = JF(1,1);
     t21g = JF(2,1) + (- m22*(l32*sin(q21 + q31 - (5*pi)/2)*sin(q31) + l32*cos(q21 + q31 - (5*pi)/2)*cos(q31)) - m32*(x32*cos(q21 + q31 - (5*pi)/2)*cos(q31) + x32*sin(q21 + q31 - (5*pi)/2)*sin(q31)) - lg21*m21*cos(r21 - q21 + pi/2))*g;
     t31g = JF(3,1) + (m22*(l31*cos(q31) + lg22*cos(q21 + q31 + r22 + pi/2)*(cos(q21 + q31 - (5*pi)/2)*cos(q31) + sin(q21 + q31 - (5*pi)/2)*sin(q31)) - lg22*sin(q21 + q31 + r22 + pi/2)*(cos(q21 + q31 - (5*pi)/2)*sin(q31) - sin(q21 + q31 - (5*pi)/2)*cos(q31))) + l31*m32*cos(q31) + m31*x31*cos(q31))*g;

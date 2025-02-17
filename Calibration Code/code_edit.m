@@ -81,13 +81,62 @@ error_forearm_com_fraction = abs(calculated_forearm_com_fraction - actual_forear
 theoreticalTorque = solveForTheoreticalTorque(coefficients, actual_humData);
 theoreticalTorqueAdjusted = solveForTheoreticalTorque(coefficients, calculated_humanData);
 
+% Define errors
+errors = [error_forearm_mass, error_upper_arm_product, error_forearm_com_fraction];
+
+% Define labels
+labels = {'Forearm Mass (M_F)', 'Upper Arm Product (MC_U)', 'Forearm COM (COM_F)'};
+
+% Create bar chart
+figure;
+bar(errors);
+
+% Set axis labels and title
+xticklabels(labels);
+ylabel('Error (%)');
+title('Error Comparison of Anthropometric Data');
+
+% Improve visualization
+grid on;
+ylim([0 max(errors) + 5]); % Adjust y-axis limit for better visibility
+
+%% Plot
+% Define the parameter names
+parameters = {'Forearm Mass (M_F)', 'Upper Arm Product (MC_U)', 'Forearm COM Fraction (COM_F)'};
+
+% Grouped data: Actual vs. Calculated values
+actual_values = [actual_forearm_mass, actual_upper_arm_product, actual_forearm_com_fraction];
+calculated_values = [calculated_forearm_mass, calculated_upper_arm_product, calculated_forearm_com_fraction];
+
+% Compute percentage errors
+error_values = [error_forearm_mass, error_upper_arm_product, error_forearm_com_fraction];
+
+% Create a grouped bar plot
+figure;
+bar_data = [actual_values; calculated_values]'; % Transpose to match grouped format
+b = bar(bar_data);
+b(1).FaceColor = [0, 0.447, 0.741]; % Actual - Blue
+b(2).FaceColor = [0.850, 0.325, 0.098]; % Calculated - Red
+
+% Add labels
+xticklabels(parameters);
+ylabel('Values');
+title('Comparison of Model and Calculated Immesurable Anthropometric Data');
+legend('Model', 'Calculated', 'Location', 'NorthEast');
+
+hold off;
+
+% Adjust layout
+grid on;
+ylim([0 max(max(bar_data)) * 1.2]); % Expand y-axis for better visibility
+
 figure; % Create a new figure
 
 % Extract the number of torque components
 num_torque_components = size(torques, 2);
 
 % Define labels for torque components
-torque_labels = {'Torque X', 'Torque Y', 'Torque Z'};
+torque_labels = {'Motor Torque 1', 'Motor Torque 2', 'Motor Torque 3'};
 
 for i = 1:num_torque_components
     subplot(3, 1, i); % Create a subplot for each torque component
@@ -95,7 +144,7 @@ for i = 1:num_torque_components
     plot(1:num_positions, torques(:, i), 'b-o', 'LineWidth', 1.5, 'DisplayName', 'Measured Torque');
     hold on;
     plot(1:num_positions, theoreticalTorque(:, i), 'r--s', 'LineWidth', 1.5, 'DisplayName', 'Theoretical Torque');
-    plot(1:num_positions, theoreticalTorqueAdjusted(:, i), 'g-.d', 'LineWidth', 1.5, 'DisplayName', 'Adjusted Theoretical Torque');
+    plot(1:num_positions, theoreticalTorqueAdjusted(:, i), 'g-.d', 'LineWidth', 1.5, 'DisplayName', 'Calibrated Theoretical Torque');
     
     xlabel('Position Index');
     ylabel('Torque (Nm)');
@@ -106,22 +155,62 @@ end
 
 hold off;
 
-% Graph
-errors = [error_forearm_mass; error_upper_arm_product; error_forearm_com_fraction]';
-error_labels = {'Forearm Mass', 'Upper Arm Product', 'Forearm COM Fraction'};
-sample_indices = 1:length(error_forearm_mass);
+%% Compute Torque Errors for Each Motor Separately
+num_positions = size(torques, 1); % Number of position indices
+num_motors = size(torques, 2);    % Number of motors (assumed to be 3)
+
+% Preallocate error arrays for each motor
+error_before_calib = zeros(num_positions, num_motors);
+error_after_calib = zeros(num_positions, num_motors);
+
+for i = 1:num_positions
+    for j = 1:num_motors
+        % Compute error for each motor separately
+        error_before_calib(i, j) = abs(theoreticalTorque(i, j) - torques(i, j)) / abs(torques(i, j)) * 100;
+        error_after_calib(i, j) = abs(theoreticalTorqueAdjusted(i, j) - torques(i, j)) / abs(torques(i, j)) * 100;
+    end
+end
+
+%% Compute Torque Errors for Each Motor Separately
+num_positions = size(torques, 1); % Number of position indices
+num_motors = size(torques, 2);    % Number of motors (assumed to be 3)
+
+% Preallocate error arrays for each motor
+error_before_calib = zeros(num_positions, num_motors);
+error_after_calib = zeros(num_positions, num_motors);
+
+for i = 1:num_positions
+    for j = 1:num_motors
+        % Compute error for each motor separately
+        error_before_calib(i, j) = abs(theoreticalTorque(i, j) - torques(i, j)) / abs(torques(i, j)) * 100;
+        error_after_calib(i, j) = abs(theoreticalTorqueAdjusted(i, j) - torques(i, j)) / abs(torques(i, j)) * 100;
+    end
+end
+
+% Plot Average Torque Error for Each Motor in One Figure
 figure;
-bar(sample_indices, errors, 'grouped'); % Grouped bar chart
-grid on;
-set(gca, 'XTick', sample_indices, 'XTickLabel', string(sample_indices));
-set(gca, 'TickLength', [0 0]); % Remove tick marks for cleaner appearance
-xtickangle(45);
-title('Error Analysis of Biomechanical Variables', 'FontSize', 14, 'FontWeight', 'bold');
-xlabel('Sample Index', 'FontSize', 12, 'FontWeight', 'bold');
-ylabel('Error (%)', 'FontSize', 12, 'FontWeight', 'bold');
-legend(error_labels, 'Location', 'northeast', 'FontSize', 10);
-set(gca, 'FontSize', 12);
-ylim([0, max(errors, [], 'all') + 5]); % Add padding to y-axis limits
+motor_labels = {'Motor Torque 1', 'Motor Torque 2', 'Motor Torque 3'};
+colors = {'r', 'b', 'g'}; % Colors for different motors
+
+for j = 1:num_motors
+    subplot(3, 1, j); % Create a 3-row subplot layout
+    hold on;
+    
+    % Plot errors before and after calibration for each motor
+    plot(1:num_positions, error_before_calib(:, j), [colors{j}, '--o'], 'LineWidth', 2, 'MarkerSize', 8); % Before Calibration
+    plot(1:num_positions, error_after_calib(:, j), [colors{j}, '-*'], 'LineWidth', 2, 'MarkerSize', 8);   % After Calibration
+    
+    % Labels and Legends
+    xlabel('Position Index');
+    ylabel('Torque Error (%)');
+    title(['Comparison of Torque Error for ', motor_labels{j}]);
+    legend('Before Calibration', 'After Calibration', 'Location', 'Best');
+    grid on;
+    hold off;
+end
+
+% Adjust layout for better visualization
+sgtitle('Comparison of Torque Error for All Motors');
 
 %% Function Declarations
 function theoreticalTorque = solveForTheoreticalTorque(coeffs, humData)

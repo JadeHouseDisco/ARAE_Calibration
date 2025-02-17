@@ -18,7 +18,6 @@ weight = 75.0;
 
 %% Read data
 results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/Human Testing/results.csv';
-json_filename = 'C:/Users/alexl/Desktop/ARAE_Calibration/MuJoCo Simulation/simulation_data.json';
 
 opts = detectImportOptions(results_file);
 opts.DataLines = [2 Inf];
@@ -49,27 +48,25 @@ Bineq = -epsilon;
 Aeq = [];
 Beq = [];
 lb = [0; 0; 0];
-ub = [5; 5; 5];
+ub = [10; 10; 1];
 
 coefficients = extract_coefficients(q_values, femur_to_humeris, pelvis_to_femur, upper_arm_length, forearm_length, g, Ugf_U_M, Lgf, F_M, r_to_p_x, r_to_p_y, r_to_p_z);
 humanData = solveForHumanData(coefficients, torques, Aineq, Bineq, Aeq, Beq, lb, ub);
-calculated_humanData = [humanData(1);humanData(2);humanData(3)];
 
 calculated_forearm_mass = humanData(1); % First value: forearm mass
 calculated_upper_arm_product = humanData(2); % Second value: upper arm mass * CoM %
 calculated_forearm_product = humanData(3); % Third value: forearm mass * CoM %
 calculated_forearm_com_fraction = calculated_forearm_product / calculated_forearm_mass;
+calculated_humanData = [calculated_forearm_mass;calculated_upper_arm_product;calculated_forearm_product];
 
 % Nominal Values:
 nominal_forearm_mass = weight * 1.87/100;
 nominal_upper_arm_product = (weight * 3.25/100) * 0.427;
 nominal_forearm_com_fraction = 0.417;
-nominal_humData = [nominal_forearm_mass; nominal_upper_arm_product; nominal_forearm_com_fraction];
+nominal_humData = [nominal_forearm_mass; nominal_upper_arm_product; nominal_forearm_mass * nominal_forearm_com_fraction];
 
 nominalTorque = solveForTheoreticalTorque(coefficients, nominal_humData);
 personlizedTorque = solveForTheoreticalTorque(coefficients, calculated_humanData);
-
-disp(personlizedTorque)
 
 %% Plot
 figure;
@@ -98,7 +95,7 @@ hold off;
 actual_values = [nominal_forearm_mass, nominal_upper_arm_product, nominal_forearm_com_fraction];
 calculated_values = [calculated_forearm_mass, calculated_upper_arm_product, calculated_forearm_com_fraction];
 
-param_labels = {'Forearm Mass', 'Upper Arm Mass * CoM', 'Forearm CoM Fraction'};
+param_labels = {'Forearm Mass (M_F)', 'Upper Arm Product (MC_U)', 'Forearm COM (COM_F)'};
 
 figure;
 bar_data = [actual_values; calculated_values]'; % Transpose for grouped bars
@@ -106,7 +103,7 @@ bar(bar_data);
 
 set(gca, 'XTickLabel', param_labels, 'FontSize', 12);
 ylabel('Value');
-title('Comparison of Actual vs Calculated Values');
+title('Comparison of Nominal and Calibrated Immeasurable Anthropometric Data');
 legend({'Actual', 'Calculated'}, 'Location', 'Best');
 grid on;
 
@@ -116,6 +113,46 @@ for i = 1:numel(xtips)
     text(xtips(i)-0.15, bar_data(i,1), sprintf('%.2f', bar_data(i,1)), 'FontSize', 10, 'VerticalAlignment', 'bottom');
     text(xtips(i)+0.15, bar_data(i,2), sprintf('%.2f', bar_data(i,2)), 'FontSize', 10, 'VerticalAlignment', 'bottom');
 end
+
+% Compute percentage error (relative to actual torques)
+nominal_percentage_error = (abs(nominalTorque - torques) ./ abs(torques)) * 100;
+personalized_percentage_error = (abs(personlizedTorque - torques) ./ abs(torques)) * 100;
+
+% Number of samples
+num_samples = size(torques, 1);
+sample_indices = 1:num_samples; % X-axis values
+
+% Define colors
+colors = {'r', 'b', 'g'}; % Red for Motor 1, Blue for Motor 2, Green for Motor 3
+
+% Plot Percentage Error for Each Motor in One Figure with Three Subplots
+figure;
+for i = 1:3
+    subplot(3,1,i); % Create a subplot for each motor
+    hold on;
+    
+    % Scatter and line for nominal torque
+    scatter(sample_indices, nominal_percentage_error(:, i), 50, colors{i}, 'filled');
+    plot(sample_indices, nominal_percentage_error(:, i), colors{i}, 'LineWidth', 1.5);
+    
+    % Scatter and line for personalized torque
+    scatter(sample_indices, personalized_percentage_error(:, i), 50, colors{i}, 'o');
+    plot(sample_indices, personalized_percentage_error(:, i), '--', 'Color', colors{i}, 'LineWidth', 1.5);
+    
+    xlabel('Position Index');
+    ylabel('Torque Error (%)');
+    legend({'Nominal', 'Personalized'}, 'Location', 'best');
+    title(['Comparison of Torque Error for ', torque_labels(i)]);
+    grid on;
+
+    % Set x-axis ticks to increments of 1
+    xticks(1:1:num_samples);
+    
+    hold off;
+end
+
+% Set figure title
+sgtitle('Comparison of Torque Error for All Motors');
 
 %% Function Declarations
 function theoreticalTorque = solveForTheoreticalTorque(coeffs, humData)

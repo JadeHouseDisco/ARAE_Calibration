@@ -38,6 +38,12 @@ for i = 1:num_positions
     torques = [torques; position_data{:, 7:9}]; 
 end
 
+%% Nominal Values:
+nominal_forearm_mass = weight * 1.87/100;
+nominal_upper_arm_product = (weight * 3.25/100) * 0.427;
+nominal_forearm_com_fraction = 0.417;
+nominal_humData = [nominal_forearm_mass; nominal_upper_arm_product; nominal_forearm_mass * nominal_forearm_com_fraction];
+
 %% Solver initilization
 g = 9.81;
 syms Ugf_U_M Lgf F_M;
@@ -51,19 +57,13 @@ lb = [0; 0; 0];
 ub = [5; 5; 5];
 
 coefficients = extract_coefficients(q_values, femur_to_humeris, pelvis_to_femur, upper_arm_length, forearm_length, g, Ugf_U_M, Lgf, F_M, r_to_p_x, r_to_p_y, r_to_p_z);
-humanData = solveForHumanData(coefficients, torques, Aineq, Bineq, Aeq, Beq, lb, ub);
+humanData = solveForHumanData(coefficients, torques, Aineq, Bineq, Aeq, Beq, lb, ub, nominal_humData);
 
 calculated_forearm_mass = humanData(1); % First value: forearm mass
 calculated_upper_arm_product = humanData(2); % Second value: upper arm mass * CoM %
 calculated_forearm_product = humanData(3); % Third value: forearm mass * CoM %
 calculated_forearm_com_fraction = calculated_forearm_product / calculated_forearm_mass;
 calculated_humanData = [calculated_forearm_mass;calculated_upper_arm_product;calculated_forearm_product];
-
-% Nominal Values:
-nominal_forearm_mass = weight * 1.87/100;
-nominal_upper_arm_product = (weight * 3.25/100) * 0.427;
-nominal_forearm_com_fraction = 0.417;
-nominal_humData = [nominal_forearm_mass; nominal_upper_arm_product; nominal_forearm_mass * nominal_forearm_com_fraction];
 
 nominalTorque = solveForTheoreticalTorque(coefficients, nominal_humData);
 personlizedTorque = solveForTheoreticalTorque(coefficients, calculated_humanData);
@@ -169,7 +169,7 @@ theoreticalTorque = [];
     end
 end
 
-function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, lb, ub)
+function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, lb, ub, x0)
     % Initialize empty matrices
     A_total = [];
     B_total = [];
@@ -189,8 +189,7 @@ function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, l
 
     A_aug = double(A_total);
     B_aug = double(B_total);
-    x0 = [];
-    options = optimoptions('lsqlin', 'Display', 'iter');
+    options = optimoptions('lsqlin', 'Algorithm', 'active-set', 'Display', 'iter');
 
     humanData = lsqlin(A_aug, B_aug, Aineq, Bineq, Aeq, Beq, lb, ub, x0, options);
 end

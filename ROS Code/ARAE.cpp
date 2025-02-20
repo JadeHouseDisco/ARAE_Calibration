@@ -36,21 +36,23 @@ Matrix4d ARAEarm::TM(double xhr, double yhr, double zhr) {
 
     return T_hr;
 }
-void ARAEarm::UpdateHumanArmProperties(HumanPara h_para_, double &mU, double &mL){
+void ARAEarm::UpdateHumanArmProperties(HumanPara h_para_, double &mU, double &mL, double scale){
     if(h_para_.gender){ //male
-        if (h_para.wt < 10.0) {
-            mU = h_para.wt;
-            mL = h_para.ws;
+        if (h_para_.wt < 10.0) {
+            std::cout << "Personlized Mode"  << std::endl;
+            mU = h_para_.wt;
+            mL = scale;
         }
         else {
+            std::cout << "Normal Mode"  << std::endl;
             mU = h_para_.ws * h_para_.wt * 3.25/100.0;
             mL = h_para_.ws * h_para_.wt * 1.87/100.0;
         }
     }
     else { //female
-        if (h_para.wt < 10.0) {
-            mU = h_para.wt;
-            mL = h_para.ws;
+        if (h_para_.wt < 10.0) {
+            mU = h_para_.wt;
+            mL = scale;
         }
         else {
             mU = h_para_.ws * h_para_.wt * 2.9/100.0;
@@ -277,7 +279,7 @@ void ARAEarm::SagittalPlane(Eigen::Vector3d Pp_e, Eigen::Vector3d Pp_w, Eigen::V
     // Changed from here
     double Eproj_r = std::sqrt(U * U - std::pow(a + x_hp, 2)); // projected radius of elbow position in SH plane
     double l_H_Eproj = std::sqrt(b * b + c * c);
-    estimated_h2 = std::atan2(-b,(l_SH - c));
+    double estimated_h2 = std::atan2(-b,(l_SH - c));
     std::cout << "Eproj_r: " << Eproj_r << std::endl;
     double cal_HS = c + Eproj_r * std::cos(estimated_h2);
     std::cout << "cal_th: " << cal_HS << std::endl;
@@ -295,13 +297,13 @@ void ARAEarm::SagittalPlane(Eigen::Vector3d Pp_e, Eigen::Vector3d Pp_w, Eigen::V
 
         if (dist_1 <= dist_2) {
             P_s.x() = -x_hp;
-            P_s.y() = calculated_y_1
-            P_s.z() = calculated_z_1
+            P_s.y() = calculated_y_1;
+            P_s.z() = calculated_z_1;
         }
         else {
             P_s.x() = -x_hp;
-            P_s.y() = calculated_y_2
-            P_s.z() = calculated_z_2
+            P_s.y() = calculated_y_2;
+            P_s.z() = calculated_z_2;
         }
 
     } else {
@@ -318,13 +320,13 @@ void ARAEarm::SagittalPlane(Eigen::Vector3d Pp_e, Eigen::Vector3d Pp_w, Eigen::V
 
         if (dist_1 <= dist_2) {
             P_s.x() = -x_hp;
-            P_s.y() = calculated_y_1
-            P_s.z() = calculated_z_1
+            P_s.y() = calculated_y_1;
+            P_s.z() = calculated_z_1;
         }
         else {
             P_s.x() = -x_hp;
-            P_s.y() = calculated_y_2
-            P_s.z() = calculated_z_2
+            P_s.y() = calculated_y_2;
+            P_s.z() = calculated_z_2;
         }
     }
     //###################################################################################################################################
@@ -376,7 +378,7 @@ void ARAEarm::Arm_IK(const Vector3d &Ps_e, const Vector3d &Ps_w, double &U_cal, 
 }
 void ARAEarm::CalFh_rigid(Huamn_angle ang_k, HumanPara h_para_, const double &U_cal, Vector3d &Ps_c, Vector3d &f1){
     double mul,mfl;
-    ARAEarm::UpdateHumanArmProperties(h_para_, mul, mfl);
+    ARAEarm::UpdateHumanArmProperties(h_para_, mul, mfl, 1.00);
     std::cout << "mUl: " << mul << std::endl;
     std::cout << "mfl: " << mfl << std::endl;
     double k1 = ang_k.h1;
@@ -446,9 +448,9 @@ void ARAEarm::CalFh_rigid(Huamn_angle ang_k, HumanPara h_para_, const double &U_
     f1 = T_s_r * f1_s;
     std::cout << "F1: " << f1 << std::endl;
 }
-void ARAEarm::CalFh_armdynamics(Huamn_angle ang_k, HumanPara h_para_, const double &U_cal, Vector3d &f2, double load){
+void ARAEarm::CalFh_armdynamics(Huamn_angle ang_k, HumanPara h_para_, const double &U_cal, Vector3d &f2, double load, double scale){
     double mU,mL;
-    ARAEarm::UpdateHumanArmProperties(h_para_, mU, mL);
+    ARAEarm::UpdateHumanArmProperties(h_para_, mU, mL, scale);
     
     double Lr_f = h_para_.fl_c;
     double k1 = ang_k.h1;
@@ -457,13 +459,16 @@ void ARAEarm::CalFh_armdynamics(Huamn_angle ang_k, HumanPara h_para_, const doub
     double k4 = ang_k.h4;
     double U = U_cal;
     double L = h_para_.fl;
-    if (h_para.wt < 10.0) {
-        double Lgf = load;
-        double Ugf = 1.0;
+    double Lgf, Ugf;
+    if (h_para_.wt < 10.0) {
+        std::cout << "Personlized" << std::endl;
+        Lgf = load;
+        Ugf = 1.0;
     }
     else {
-        double Lgf = h_para_.Lgc;
-        double Ugf = h_para_.Ugc;
+        std::cout << "Normal" << std::endl;
+        Lgf = h_para_.Lgc;
+        Ugf = h_para_.Ugc;
     }
     // Human arm jacobian
     // Limit elbow angle to avoid Singularity of Jacobian matrix
@@ -532,8 +537,6 @@ Vector3d ARAEarm::RobotTorque(double *P, int cA, const Eigen::Vector3d &end_f, d
     double q1, q_dot_1, q_ddot_1, q21, q_dot_21, q_ddot_21, q31, q_dot_31, q_ddot_31;
 
     Vector3d Tr(0,0,0);
-
- 
 
     i=0;
 
@@ -663,7 +666,7 @@ Vector3d ARAEarm::RobotTorque(double *P, int cA, const Eigen::Vector3d &end_f, d
 
     Eigen::Vector3d F;
 
-    if (h_para.wt < 10.0) {
+    if (h_para_.wt < 10.0) {
         F << lm_x, lm_y, (wl4 * g + lm_z);
     }
     else {

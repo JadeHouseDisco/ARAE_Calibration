@@ -107,6 +107,7 @@ void ULEArm::ControlLoop(float period_ms)
     Huamn_angle ang_h;
     
     double load = 0;
+    double scale = 1;
     double U_cal = 0;
     Vector3d Ps_c(0,0,0), Ps_e(0,0,0), Ps_w(0,0,0), Ps(0,0,0);
     Vector3d Pp_c(0,0,0), Pp_e(0,0,0), Pp_w(0,0,0);
@@ -211,7 +212,7 @@ void ULEArm::ControlLoop(float period_ms)
                         // torque = p_TC_->torque_cal(*robot_joint,1,end_support_force,load);                  
                         p_ARAE_->Robot_FK(*robot_joint,h2r_para.xsr,h2r_para.ysr,h2r_para.zsr,Ps_c, Ps_e, Ps_w);
                         p_ARAE_->Arm_IK(Ps_e,Ps_w,U_cal,ang_h);
-                        p_ARAE_->CalFh_armdynamics(ang_h,h_para,U_cal,end_support_force, load);
+                        p_ARAE_->CalFh_armdynamics(ang_h,h_para,U_cal,end_support_force,load);
                         end_support_force = end_support_force * param_.Cat3.control_scaling;
                         torque = p_ARAE_->RobotTorque(*robot_joint,1,end_support_force,load);
                     }
@@ -219,14 +220,17 @@ void ULEArm::ControlLoop(float period_ms)
                     else{
                         std::cout<<"arm dynamic Sagittal plane"<<std::endl;
                         load = param_.Cat3.load_wt;
+                        scale = param_.Cat3.control_scaling;
                         // end_support_force = p_TC_->human_cp_jac(*robot_joint,human_properties,controller_state_.human_state.joint);
                         // end_support_force = end_support_force * param_.Cat3.control_scaling;
                         // torque = p_TC_->torque_cal(*robot_joint,1,end_support_force,load);                  
                         p_ARAE_->Robot_FK(*robot_joint,h2r_para.xpr,h2r_para.ypr,h2r_para.zpr,Pp_c, Pp_e, Pp_w);
                         p_ARAE_->SagittalPlane(Pp_e,Pp_w,Ps,Ps_e,Ps_w);
                         p_ARAE_->Arm_IK(Ps_e,Ps_w,U_cal,ang_h);
-                        p_ARAE_->CalFh_armdynamics(ang_h,h_para,U_cal,end_support_force, load);
-                        end_support_force = end_support_force * param_.Cat3.control_scaling;
+                        p_ARAE_->CalFh_armdynamics(ang_h,h_para,U_cal,end_support_force, load, scale);
+                        if (load > 10.0) {
+                            end_support_force = end_support_force * scale;
+                        }
                         torque = p_ARAE_->RobotTorque(*robot_joint,1,end_support_force,load);
                     }
                 break;

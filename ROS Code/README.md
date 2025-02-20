@@ -7,4 +7,5 @@ Note that ARAE operates under personalized mode when the weight value is lower t
 
 # Files that were replaced
 1. ULE_ARAE\src\ulexo_arm\api\ARAE_core\src\ARAE.cpp
-2. ULE_ARAE\src\ulexo_arm\src\ulexo_arm.cpp
+2. ULE_ARAE\src\ulexo_arm\api\ARAE_core\include\ARAE_CORE\ARAE.hpp
+3. ULE_ARAE\src\ulexo_arm\src\ulexo_arm.cpp

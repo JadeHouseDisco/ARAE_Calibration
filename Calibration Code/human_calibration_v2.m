@@ -38,12 +38,6 @@ for i = 1:num_positions
     torques = [torques; position_data{:, 7:9}]; 
 end
 
-%% Nominal Values:
-nominal_forearm_mass = weight * 1.87/100;
-nominal_upper_arm_product = (weight * 3.25/100) * 0.427;
-nominal_forearm_com_fraction = 0.417;
-nominal_humData = [nominal_forearm_mass; nominal_upper_arm_product; nominal_forearm_mass * nominal_forearm_com_fraction];
-
 %% Solver initilization
 g = 9.81;
 syms Ugf_U_M Lgf F_M;
@@ -57,13 +51,19 @@ lb = [0; 0; 0];
 ub = [5; 5; 5];
 
 coefficients = extract_coefficients(q_values, femur_to_humeris, pelvis_to_femur, upper_arm_length, forearm_length, g, Ugf_U_M, Lgf, F_M, r_to_p_x, r_to_p_y, r_to_p_z);
-humanData = solveForHumanData(coefficients, torques, Aineq, Bineq, Aeq, Beq, lb, ub, nominal_humData);
+humanData = solveForHumanData(coefficients, torques, Aineq, Bineq, Aeq, Beq, lb, ub);
 
 calculated_forearm_mass = humanData(1); % First value: forearm mass
 calculated_upper_arm_product = humanData(2); % Second value: upper arm mass * CoM %
 calculated_forearm_product = humanData(3); % Third value: forearm mass * CoM %
 calculated_forearm_com_fraction = calculated_forearm_product / calculated_forearm_mass;
 calculated_humanData = [calculated_forearm_mass;calculated_upper_arm_product;calculated_forearm_product];
+
+% Nominal Values:
+nominal_forearm_mass = weight * 1.87/100;
+nominal_upper_arm_product = (weight * 3.25/100) * 0.427;
+nominal_forearm_com_fraction = 0.417;
+nominal_humData = [nominal_forearm_mass; nominal_upper_arm_product; nominal_forearm_mass * nominal_forearm_com_fraction];
 
 nominalTorque = solveForTheoreticalTorque(coefficients, nominal_humData);
 personlizedTorque = solveForTheoreticalTorque(coefficients, calculated_humanData);
@@ -169,7 +169,7 @@ theoreticalTorque = [];
     end
 end
 
-function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, lb, ub, x0)
+function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, lb, ub)
     % Initialize empty matrices
     A_total = [];
     B_total = [];
@@ -189,7 +189,8 @@ function humanData = solveForHumanData(coeffs, torque, Aineq, Bineq, Aeq, Beq, l
 
     A_aug = double(A_total);
     B_aug = double(B_total);
-    options = optimoptions('lsqlin', 'Algorithm', 'active-set', 'Display', 'iter');
+    x0 = [];
+    options = optimoptions('lsqlin', 'Display', 'iter');
 
     humanData = lsqlin(A_aug, B_aug, Aineq, Bineq, Aeq, Beq, lb, ub, x0, options);
 end
@@ -383,45 +384,14 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
     Pp_e_y = Pp_e(2);
     Pp_e_z = Pp_e(3);
 
-    %-----------------------------------------------------------------------
-    % Changed from (Pp_e_x - T_W) to (Pp_e_x + T_W)
-    % Added estimated_h2 and changed the calcualtion of cal_HS from 
-    % Pp_e_z + Eproj_r to Pp_e_z + Eproj_r * cos(estimated_h2)
-    %-----------------------------------------------------------------------
+    % New shoulder position calculation
     Eproj_r = sqrt(U_L^2 - (Pp_e_x + T_W)^2); % projected radius of elbow position in sagittal plane
-    l_H_Eproj = sqrt(Pp_e_y^2 + Pp_e_z^2); % distance between projected elbow joint and hip joint in sagittal plane
-    estimated_h2 = atan2(-Pp_e_y,(T_L-Pp_e_z));
-    cal_HS = Pp_e_z + Eproj_r * cos(estimated_h2);
-
-    %-----------------------------------------------------------------------
-    % Changed from Pp_e_y to -Pp_e_y
-    % Changed from T_W to -T_W
-    % Changed from yout(2) to -yout(2)
-    % When cal_HS < T_L, changed amend_Eproj_r from T_L - Pp_e_z to
-    % (T_L - Pp_e_z) / cos(estimated_h2)
-    %-----------------------------------------------------------------------
-    S_predicted = [0, T_L];
-    if cal_HS >= T_L
-        amend_Eproj_r = Eproj_r;
-        [yout,zout] = circcirc(0,0,T_L,-Pp_e_y,Pp_e_z,amend_Eproj_r);
-        S_calculated_1 = [yout(1),zout(1)];
-        S_calculated_2 = [yout(2),zout(2)];
-        if (norm(S_predicted- S_calculated_1) < norm(S_predicted- S_calculated_2))
-            Pp_s = [-T_W;-yout(1);zout(1)];
-        else 
-            Pp_s = [-T_W;-yout(2);zout(2)];
-        end
-    else
-        amend_Eproj_r = (T_L - Pp_e_z) / cos(estimated_h2);
-        [yout,zout] = circcirc(0,0,T_L,-Pp_e_y,Pp_e_z,amend_Eproj_r);
-        S_calculated_1 = [yout(1),zout(1)];
-        S_calculated_2 = [yout(2),zout(2)];
-        if (norm(S_predicted- S_calculated_1) < norm(S_predicted- S_calculated_2))
-            Pp_s = [-T_W;-yout(1);zout(1)];
-        else 
-            Pp_s = [-T_W;-yout(2);zout(2)];
-        end
-    end
+    theta_elbow = atan(Pp_e_z/-Pp_e_y);
+    L_hip_to_elbow = sqrt(Pp_e_y^2 + Pp_e_z^2);
+    theta_elbow_to_torso = acos((T_L^2 + L_hip_to_elbow^2 - Eproj_r^2)/(2*T_L*L_hip_to_elbow));
+    y_shoulder = -T_L*cos(theta_elbow + theta_elbow_to_torso);
+    z_shoulder = T_L*sin(theta_elbow + theta_elbow_to_torso);
+    Pp_s = [-T_W;y_shoulder;z_shoulder];
 
     % Transforming pelvis base points to shoulder base points
     Ps_e = Trans(-Pp_s(1),-Pp_s(2),-Pp_s(3))*Pp_e;

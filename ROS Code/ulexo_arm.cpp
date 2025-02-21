@@ -107,12 +107,15 @@ void ULEArm::ControlLoop(float period_ms)
     Huamn_angle ang_h;
     
     double load = 0;
-    double scale = 1;
+    double scale = 0;
     double U_cal = 0;
     Vector3d Ps_c(0,0,0), Ps_e(0,0,0), Ps_w(0,0,0), Ps(0,0,0);
     Vector3d Pp_c(0,0,0), Pp_e(0,0,0), Pp_w(0,0,0);
     Vector3d end_support_force(0,0,0);
     Vector3d torque(0,0,0);
+    Vector3d P(0,0,0);
+    Vector3d Kp(0,0,0);
+
 
     while ( control_thread_running_ /*ros::ok()*/)
     {
@@ -141,6 +144,8 @@ void ULEArm::ControlLoop(float period_ms)
             p_ARAE_->UpdateParams(h_para,h2r_para,r_para);
 
             torque.setZero();
+            P.setZero();
+            Kp.setZero();
 
             // std::cout<<"param_.Cat4.control_mode"<<param_.Cat4.control_mode<<std::endl;
             // std::cout<< "=============================" << param_.Cat4.shoulder_mode <<","<< 
@@ -160,6 +165,8 @@ void ULEArm::ControlLoop(float period_ms)
                     end_support_force.setZero();
                     torque = p_ARAE_->RobotTorque(*robot_joint,1,end_support_force,load);
                     // torque = p_TC_->torque_cal(*robot_joint,1,end_support_force,load);
+                    P.setZero();
+                    Kp.setZero();
                 break;
                 case FIXED_LOAD:
                     // std::cout<<"In fixed load mode..."<<std::endl;
@@ -168,6 +175,8 @@ void ULEArm::ControlLoop(float period_ms)
                     end_support_force.setZero();
                     torque = p_ARAE_->RobotTorque(*robot_joint,1,end_support_force,load);
                     // torque = p_TC_->torque_cal(*robot_joint,1,end_support_force,load);
+                    P.setZero();
+                    Kp.setZero();
                 break;
             
             
@@ -200,6 +209,8 @@ void ULEArm::ControlLoop(float period_ms)
                         end_support_force = end_support_force * param_.Cat3.control_scaling;
                         torque = p_ARAE_->RobotTorque(*robot_joint,1,end_support_force,load);
                     }
+                    P.setZero();
+                    Kp.setZero();
                 break;
 
                 case ARM_DYNAMIC:
@@ -207,14 +218,17 @@ void ULEArm::ControlLoop(float period_ms)
                     if(param_.Cat4.shoulder_mode == 0){
                         std::cout<<"arm dynamic fixed shoulder"<<std::endl;
                         load = param_.Cat3.load_wt;
+                        scale = param_.Cat3.control_scaling;
                         // end_support_force = p_TC_->human_cp_jac(*robot_joint,human_properties,controller_state_.human_state.joint);
                         // end_support_force = end_support_force * param_.Cat3.control_scaling;
                         // torque = p_TC_->torque_cal(*robot_joint,1,end_support_force,load);                  
                         p_ARAE_->Robot_FK(*robot_joint,h2r_para.xsr,h2r_para.ysr,h2r_para.zsr,Ps_c, Ps_e, Ps_w);
                         p_ARAE_->Arm_IK(Ps_e,Ps_w,U_cal,ang_h);
-                        p_ARAE_->CalFh_armdynamics(ang_h,h_para,U_cal,end_support_force,load);
-                        end_support_force = end_support_force * param_.Cat3.control_scaling;
-                        torque = p_ARAE_->RobotTorque(*robot_joint,1,end_support_force,load);
+                        p_ARAE_->CalFh_armdynamics(ang_h,h_para,U_cal,end_support_force, load, scale);
+                        if (h_para.wt > 10.0) {
+                            end_support_force = end_support_force * param_.Cat3.control_scaling;
+                        }
+                        torque = p_ARAE_->RobotTorque(h_para, *robot_joint,1,end_support_force,load);
                     }
                      ///////////////// * Sagittal plane model * /////////////////////////
                     else{
@@ -228,22 +242,35 @@ void ULEArm::ControlLoop(float period_ms)
                         p_ARAE_->SagittalPlane(Pp_e,Pp_w,Ps,Ps_e,Ps_w);
                         p_ARAE_->Arm_IK(Ps_e,Ps_w,U_cal,ang_h);
                         p_ARAE_->CalFh_armdynamics(ang_h,h_para,U_cal,end_support_force, load, scale);
-                        if (load > 10.0) {
-                            end_support_force = end_support_force * scale;
+                        if (h_para.wt > 10.0) {
+                            end_support_force = end_support_force * param_.Cat3.control_scaling;
                         }
-                        torque = p_ARAE_->RobotTorque(*robot_joint,1,end_support_force,load);
+                        torque = p_ARAE_->RobotTorque(h_para,*robot_joint,1,end_support_force,load);
                     }
+                    P.setZero();
+                    Kp.setZero();
                 break;
 
                 case MANUAL_CTRL:
                     std::cout<<"In arm dynamic mode..."<<std::endl;
-                    torque[0] = param_.Cat5.mT[0];
-                    torque[1] = param_.Cat5.mT[1];
-                    torque[2] = param_.Cat5.mT[2];
+                    // torque[0] = param_.Cat5.mT[0];
+                    // torque[1] = param_.Cat5.mT[1];
+                    // torque[2] = param_.Cat5.mT[2];
+                    torque[0] = 0;
+                    torque[1] = 0;
+                    torque[2] = 0;
+                    P[0]  = param_.Cat5.mP[0]*3.14159265359f/180.0f;
+                    P[1]  = param_.Cat5.mP[1]*3.14159265359f/180.0f;
+                    P[2]  = param_.Cat5.mP[2]*3.14159265359f/180.0f - 3.14159265359f;
+                    Kp[0]  = param_.Cat5.mKp[0];
+                    Kp[1]  = param_.Cat5.mKp[1];
+                    Kp[2]  = param_.Cat5.mKp[2];
                 break;
 
                 case STOP:
                     torque.setZero();
+                    P.setZero();
+                    Kp.setZero();
                 break;
 
                 default:
@@ -258,9 +285,9 @@ void ULEArm::ControlLoop(float period_ms)
             
             ulexo_stm_msg::MotorCmd msg;
 
-            msg.m_p[0]  = 0;
-            msg.m_p[1]  = 0;
-            msg.m_p[2]  = 0;
+            msg.m_p[0]  = P[0];
+            msg.m_p[1]  = P[1];
+            msg.m_p[2]  = P[2];
             // Temporary to show the end effector support force
             // msg.m_v[0]  = end_support_force[0];
             // msg.m_v[1]  = end_support_force[1];
@@ -271,9 +298,9 @@ void ULEArm::ControlLoop(float period_ms)
             msg.m_t[0]  = torque[0];
             msg.m_t[1]  = torque[1];
             msg.m_t[2]  = torque[2];
-            msg.m_kp[0]  = 0;
-            msg.m_kp[1]  = 0;
-            msg.m_kp[2]  = 0;
+            msg.m_kp[0]  = Kp[0];
+            msg.m_kp[1]  = Kp[1];
+            msg.m_kp[2]  = Kp[2];
             msg.m_kd[0]  = 0;
             msg.m_kd[1]  = 0;
             msg.m_kd[2]  = 0;

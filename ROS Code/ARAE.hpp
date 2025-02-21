@@ -93,7 +93,7 @@ class ARAEarm{
         void Update_Arm_Jocabian();
         void CalFh_rigid(Huamn_angle ang_k, HumanPara h_para_, const double &U_cal, Vector3d &Ps_c, Vector3d &f1);
         void CalFh_armdynamics(Huamn_angle ang_k, HumanPara h_para_, const double &U_cal, Vector3d &f2, double load, double scale);
-        Vector3d RobotTorque(double *P, int cA, const Eigen::Vector3d &end_f, double load);
+        Vector3d RobotTorque(HumanPara h_para_, double *P, int cA, const Eigen::Vector3d &end_f, double load);
         // Vector3f RobotForce2Torque(const float ang_q[5][3], Vector3f f, float load);
 
 };

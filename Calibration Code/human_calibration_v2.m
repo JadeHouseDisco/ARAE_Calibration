@@ -5,9 +5,9 @@ close all
 
 %% Parameter initilization
 % Robot base to pevlis
-r_to_p_x = -0.573;
-r_to_p_y = -0.05;
-r_to_p_z = 0.162;
+r_to_p_x = -0.46;
+r_to_p_y = -0.02;
+r_to_p_z = 0.135;
 
 % Person antrhopomettric data
 upper_arm_length = 0.265;
@@ -17,7 +17,7 @@ pelvis_to_femur = 0.18;
 weight = 75.0;
 
 %% Read data
-results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/Human Testing/results.csv';
+results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/Human Testing/subject1/calibration/results.csv';
 
 opts = detectImportOptions(results_file);
 opts.DataLines = [2 Inf];

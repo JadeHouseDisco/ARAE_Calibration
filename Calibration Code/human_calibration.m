@@ -5,37 +5,77 @@ close all
 
 %% Parameter initilization
 % Robot base to pevlis
-r_to_p_x = -0.573;
-r_to_p_y = -0.05;
-r_to_p_z = 0.162;
+r_to_p_x = -0.555;
+r_to_p_y = -0.23;
+r_to_p_z = 0.015;
 
 % Person antrhopomettric data
-upper_arm_length = 0.265;
-forearm_length = 0.225;
-femur_to_humeris = 0.39;
+upper_arm_length = 0.3;
+forearm_length = 0.23;
+femur_to_humeris = 0.43;
 pelvis_to_femur = 0.18;
-weight = 75.0;
+weight = 62;
+
+% Data import settings
+directory = 'C:/Users/alexl/Desktop/ARAE_Calibration/Human Testing/subject9/calibration'; % Folder path
+n = 10; % Time to wait before averaging (in seconds)
+fs = 100; % Sampling frequency in Hz
 
 %% Read data
-results_file = 'C:/Users/alexl/Desktop/ARAE_Calibration/Human Testing/results.csv';
+% Get a list of all .txt files in the directory
+fileList = dir(fullfile(directory, '*.txt'));
 
-opts = detectImportOptions(results_file);
-opts.DataLines = [2 Inf];
-
-% Read the data from the file
-data = readtable(results_file, opts);
-
-positions = unique(data{:, 1});
-num_positions = numel(positions);
-
-% Preallocate cell arrays to store q_values and torques
-q_values = [];
+% Initialize storage arrays
+q_values = []; 
 torques = [];
+num_positions = 0;
 
-for i = 1:num_positions
-    position_data = data(i, :);
-    q_values = [q_values; position_data{:, 2:6}];
-    torques = [torques; position_data{:, 7:9}]; 
+% Loop through each file
+for k = 1:length(fileList)
+    % Construct full file path
+    filename = fullfile(directory, fileList(k).name);
+    
+    % Read data from the file
+    opts = detectImportOptions(filename, 'Delimiter', ',');
+    opts.VariableNamesLine = 1; % Ensure column headers are read correctly
+    data = readtable(filename, opts);
+
+    % Extract relevant columns
+    Timestamp = data.Timestamp;
+    m1P_stm = data.m1P_stm;
+    m2P_stm = data.m2P_stm;
+    m3P_stm = data.m3P_stm;
+    enc1_stm = data.enc1_stm;
+    enc2_stm = data.enc2_stm;
+    m1T_stm = data.m1T_stm;
+    m2T_stm = data.m2T_stm;
+    m3T_stm = data.m3T_stm;
+
+    % Convert Timestamp to seconds relative to start
+    time = (Timestamp - Timestamp(1)) / 1000; % Convert to seconds
+
+    % Find indices for stable data (after n seconds)
+    start_idx = find(time >= n, 1); % First index after n seconds
+    end_idx = start_idx + fs - 1; % One second worth of data
+
+    % Ensure end index does not exceed data length
+    if end_idx > length(time)
+        warning('File %s: Not enough data for averaging after %d seconds.', fileList(k).name, n);
+        continue; % Skip to next file
+    end
+
+    % Compute averages
+    q_avg = mean([m1P_stm(start_idx:end_idx), m2P_stm(start_idx:end_idx), ...
+                  m3P_stm(start_idx:end_idx), enc1_stm(start_idx:end_idx), ...
+                  enc2_stm(start_idx:end_idx)], 1);
+              
+    torque_avg = mean([m1T_stm(start_idx:end_idx), m2T_stm(start_idx:end_idx), ...
+                       m3T_stm(start_idx:end_idx)], 1);
+
+    % Append results
+    q_values = [q_values; q_avg]; %#ok<AGROW>
+    torques = [torques; torque_avg]; %#ok<AGROW>
+    num_positions = num_positions + 1;
 end
 
 %% Solver initilization
@@ -78,7 +118,7 @@ torque_labels = {'Motor Torque 1', 'Motor Torque 2', 'Motor Torque 3'};
 for i = 1:num_torque_components
     subplot(3, 1, i);
     
-    plot(1:num_positions, torques(:, i), 'b-o', 'LineWidth', 1.5, 'DisplayName', 'Measured Torque');
+    plot(1:num_positions, torques(:, i), 'b-o', 'LineWidth', 1.5, 'DisplayName', 'Actual Torque');
     hold on;
     plot(1:num_positions, nominalTorque(:, i), 'r--s', 'LineWidth', 1.5, 'DisplayName', 'Nominal Torque');
     plot(1:num_positions, personlizedTorque(:, i), 'g-.d', 'LineWidth', 1.5, 'DisplayName', 'Personlized Torque');
@@ -104,7 +144,7 @@ bar(bar_data);
 set(gca, 'XTickLabel', param_labels, 'FontSize', 12);
 ylabel('Value');
 title('Comparison of Nominal and Calibrated Immeasurable Anthropometric Data');
-legend({'Actual', 'Calculated'}, 'Location', 'Best');
+legend({'Nominal', 'Personalized'}, 'Location', 'Best');
 grid on;
 
 xtips = get(gca,'XTick');
@@ -384,45 +424,24 @@ function T_hd = compute_joint_torques(q1, q21, q31, q4, q5, T_L, T_W, U_L, F_L, 
     Pp_e_y = Pp_e(2);
     Pp_e_z = Pp_e(3);
 
-    %-----------------------------------------------------------------------
-    % Changed from (Pp_e_x - T_W) to (Pp_e_x + T_W)
-    % Added estimated_h2 and changed the calcualtion of cal_HS from 
-    % Pp_e_z + Eproj_r to Pp_e_z + Eproj_r * cos(estimated_h2)
-    %-----------------------------------------------------------------------
+    % New shoulder position calculation
     Eproj_r = sqrt(U_L^2 - (Pp_e_x + T_W)^2); % projected radius of elbow position in sagittal plane
-    l_H_Eproj = sqrt(Pp_e_y^2 + Pp_e_z^2); % distance between projected elbow joint and hip joint in sagittal plane
-    estimated_h2 = atan2(-Pp_e_y,(T_L-Pp_e_z));
-    cal_HS = Pp_e_z + Eproj_r * cos(estimated_h2);
+    theta_elbow = atan(Pp_e_z/-Pp_e_y);
 
-    %-----------------------------------------------------------------------
-    % Changed from Pp_e_y to -Pp_e_y
-    % Changed from T_W to -T_W
-    % Changed from yout(2) to -yout(2)
-    % When cal_HS < T_L, changed amend_Eproj_r from T_L - Pp_e_z to
-    % (T_L - Pp_e_z) / cos(estimated_h2)
-    %-----------------------------------------------------------------------
-    S_predicted = [0, T_L];
-    if cal_HS >= T_L
-        amend_Eproj_r = Eproj_r;
-        [yout,zout] = circcirc(0,0,T_L,-Pp_e_y,Pp_e_z,amend_Eproj_r);
-        S_calculated_1 = [yout(1),zout(1)];
-        S_calculated_2 = [yout(2),zout(2)];
-        if (norm(S_predicted- S_calculated_1) < norm(S_predicted- S_calculated_2))
-            Pp_s = [-T_W;-yout(1);zout(1)];
-        else 
-            Pp_s = [-T_W;-yout(2);zout(2)];
-        end
-    else
-        amend_Eproj_r = (T_L - Pp_e_z) / cos(estimated_h2);
-        [yout,zout] = circcirc(0,0,T_L,-Pp_e_y,Pp_e_z,amend_Eproj_r);
-        S_calculated_1 = [yout(1),zout(1)];
-        S_calculated_2 = [yout(2),zout(2)];
-        if (norm(S_predicted- S_calculated_1) < norm(S_predicted- S_calculated_2))
-            Pp_s = [-T_W;-yout(1);zout(1)];
-        else 
-            Pp_s = [-T_W;-yout(2);zout(2)];
-        end
+    if theta_elbow < 0
+        theta_elbow = pi + theta_elbow;
     end
+
+    L_hip_to_elbow = sqrt(Pp_e_y^2 + Pp_e_z^2);
+
+    if T_L > Eproj_r + L_hip_to_elbow
+        L_hip_to_elbow = T_L - Eproj_r;
+    end
+
+    theta_elbow_to_torso = acos((T_L^2 + L_hip_to_elbow^2 - Eproj_r^2)/(2*T_L*L_hip_to_elbow));
+    y_shoulder = -T_L*cos(theta_elbow + theta_elbow_to_torso);
+    z_shoulder = T_L*sin(theta_elbow + theta_elbow_to_torso);
+    Pp_s = [-T_W;y_shoulder;z_shoulder];
 
     % Transforming pelvis base points to shoulder base points
     Ps_e = Trans(-Pp_s(1),-Pp_s(2),-Pp_s(3))*Pp_e;
